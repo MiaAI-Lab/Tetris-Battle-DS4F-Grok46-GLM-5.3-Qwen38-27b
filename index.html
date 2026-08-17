@@ -3,117 +3,220 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Tetris Battle Arena — DS4F vs Grok 4.6 vs GLM-5.3 vs Qwen3.8-27b</title>
+<title>Tetris Battle Arena — 6 Models, One Shot</title>
 <style>
   :root {
-    --bg: #0b0b10;
-    --panel: #14141c;
-    --text: #e8e8f0;
-    --muted: #9a9ab0;
-    --accent: #6ee7ff;
-    --border: #2a2a3a;
+    --bg: #08080d;
+    --panel: rgba(20, 20, 30, .72);
+    --border: rgba(255,255,255,.08);
+    --text: #ececf4;
+    --muted: #8f8fa6;
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { min-height: 100%; }
   body {
     background: var(--bg);
     color: var(--text);
     font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    overflow-x: hidden;
     min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 4rem 1.5rem;
   }
-  .wrap { max-width: 960px; width: 100%; text-align: center; }
-  h1 { font-size: 2.4rem; letter-spacing: 4px; text-transform: uppercase; margin-bottom: .5rem; }
-  .sub { color: var(--muted); margin-bottom: 3rem; }
-  a { text-decoration: none; }
+  /* ---- animated falling-piece background ---- */
+  .bg {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background:
+      radial-gradient(1200px 600px at 50% -10%, rgba(120,90,255,.18), transparent 60%),
+      radial-gradient(900px 500px at 90% 110%, rgba(0,200,255,.10), transparent 60%),
+      var(--bg);
+  }
+  .bg .piece {
+    position: absolute; top: -60px; opacity: .05;
+    animation: fall linear infinite;
+  }
+  @keyframes fall {
+    to { transform: translateY(115vh) rotate(360deg); }
+  }
+  /* ---- layout ---- */
+  .wrap {
+    position: relative; z-index: 1;
+    max-width: 1080px; margin: 0 auto;
+    padding: 4.5rem 1.5rem 3rem;
+  }
+  header { text-align: center; margin-bottom: 3.2rem; }
+  .kicker {
+    display: inline-block; font-size: .72rem; letter-spacing: 5px;
+    text-transform: uppercase; color: var(--muted);
+    border: 1px solid var(--border); border-radius: 999px;
+    padding: .45rem 1.1rem; margin-bottom: 1.3rem;
+    background: rgba(255,255,255,.03);
+  }
+  h1 {
+    font-size: clamp(2rem, 6vw, 3.4rem);
+    font-weight: 800; letter-spacing: 2px; text-transform: uppercase;
+    background: linear-gradient(90deg, #6ee7ff, #b388ff, #ff8cc8, #ffd166);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    filter: drop-shadow(0 0 22px rgba(140,120,255,.35));
+  }
+  .sub { color: var(--muted); margin-top: .9rem; font-size: .98rem; max-width: 640px; margin-inline: auto; }
+  .sub b { color: var(--text); font-weight: 600; }
   .grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 1rem;
+    grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+    gap: 1.25rem;
   }
-  .card {
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    gap: 1.2rem;
+  a.card {
+    position: relative;
+    display: flex; flex-direction: column; gap: 1rem;
+    padding: 1.7rem 1.6rem 1.4rem;
     background: var(--panel);
     border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 1.6rem 1.4rem;
-    transition: transform .15s ease, border-color .15s ease, box-shadow .15s ease;
-    color: var(--text);
+    border-radius: 18px;
+    color: var(--text); text-decoration: none;
+    backdrop-filter: blur(6px);
+    overflow: hidden;
+    transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease;
   }
-  .card:hover {
-    transform: translateY(-3px);
-    border-color: var(--accent);
-    box-shadow: 0 8px 30px rgba(110, 231, 255, .15);
+  a.card::before {
+    content: ""; position: absolute; inset: 0;
+    background: radial-gradient(300px 130px at 50% -20%, var(--ac-glow), transparent 70%);
+    opacity: 0; transition: opacity .18s ease;
   }
-  .model { font-size: 1.15rem; font-weight: 600; }
-  .title { color: var(--muted); font-size: .85rem; min-height: 2.2em; }
+  a.card:hover { transform: translateY(-5px); border-color: var(--ac); }
+  a.card:hover::before { opacity: 1; }
+  .piece-wrap {
+    height: 74px; display: flex; align-items: center; justify-content: center;
+    background: rgba(0,0,0,.38);
+    border: 1px solid var(--border); border-radius: 12px;
+  }
+  .piece-wrap svg { width: 44px; height: 44px; filter: drop-shadow(0 0 10px var(--ac-glow)); }
+  .meta-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; }
+  .model { font-size: 1.18rem; font-weight: 700; letter-spacing: .3px; }
+  .tagline { color: var(--muted); font-size: .86rem; margin-top: .35rem; min-height: 1.2em; }
+  .file {
+    font-size: .66rem; color: var(--muted);
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: .25rem .5rem; white-space: nowrap;
+    letter-spacing: .4px;
+  }
+  .bottom { display: flex; justify-content: space-between; align-items: center; margin-top: .5rem; }
   .size { color: var(--muted); font-size: .75rem; }
   .play {
-    background: var(--accent);
-    color: #0b0b10;
-    font-weight: 700;
-    padding: .6rem;
-    border-radius: 8px;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    font-size: .8rem;
+    display: inline-flex; align-items: center; gap: .45rem;
+    font-size: .78rem; font-weight: 700; letter-spacing: 1px;
+    text-transform: uppercase; color: #0a0a12;
+    background: var(--ac);
+    padding: .55rem 1.05rem; border-radius: 999px;
+    box-shadow: 0 0 18px var(--ac-glow);
   }
-  footer { margin-top: 3rem; color: var(--muted); font-size: .8rem; }
-  footer a { color: var(--accent); }
+  .play .arr { transition: transform .18s ease; }
+  a.card:hover .play .arr { transform: translate(2px,-2px); }
+  .card-num {
+    position: absolute; top: .8rem; right: 1rem;
+    font-size: .7rem; letter-spacing: 2px; color: var(--muted);
+    opacity: .6;
+  }
+  footer { text-align: center; color: var(--muted); font-size: .8rem; margin-top: 3.4rem; }
+  footer a { color: var(--ac, #6ee7ff); text-decoration: none; }
+  footer .dot { margin: 0 .4rem; opacity: .4; }
+  @media (max-width: 480px) {
+    .grid { grid-template-columns: 1fr; }
+    .wrap { padding-top: 3rem; }
+  }
 </style>
 </head>
 <body>
+<div class="bg" id="bg"></div>
 <div class="wrap">
-  <h1>Tetris Battle Arena</h1>
-  <p class="sub">Four models, one prompt, one-shot Tetris. Pick a contender — each opens in a new tab.</p>
-  <div class="grid">
-    <a class="card" href="tetris_ds4f-0731.html" target="_blank" rel="noopener">
-      <div>
-        <div class="model">DeepSeek v4 Flash 0731</div>
-        <div class="title">TETRIS — Marathon</div>
-      </div>
-      <div>
-        <div class="play">Play &#8599;</div>
-        <div class="size">ds4f-0731</div>
-      </div>
-    </a>
-    <a class="card" href="tetris_grok46.html" target="_blank" rel="noopener">
-      <div>
-        <div class="model">Grok 4.6</div>
-        <div class="title">TETRIS</div>
-      </div>
-      <div>
-        <div class="play">Play &#8599;</div>
-        <div class="size">grok46</div>
-      </div>
-    </a>
-    <a class="card" href="tetris_glm53.html" target="_blank" rel="noopener">
-      <div>
-        <div class="model">GLM-5.3</div>
-        <div class="title">TETRIS — Obsidian</div>
-      </div>
-      <div>
-        <div class="play">Play &#8599;</div>
-        <div class="size">glm53</div>
-      </div>
-    </a>
-    <a class="card" href="tetris_qwen38_27b.html" target="_blank" rel="noopener">
-      <div>
-        <div class="model">Qwen3.8-27b</div>
-        <div class="title">TETRIS — Modern Edition</div>
-      </div>
-      <div>
-        <div class="play">Play &#8599;</div>
-        <div class="size">qwen38_27b</div>
-      </div>
-    </a>
-  </div>
-  <footer><a href="README.md">About this battle</a></footer>
+  <header>
+    <div class="kicker">One Prompt &middot; Six Models &middot; Zero Edits</div>
+    <h1>Tetris Battle Arena</h1>
+    <p class="sub">
+      The same prompt, thrown at six different models. Their one-shot,
+      single-file Tetris builds, head to head. <b>Pick a contender &mdash; it opens in a new tab.</b>
+    </p>
+  </header>
+
+  <div class="grid" id="grid"></div>
+
+  <footer>
+    <a href="README.md">About this battle</a><span class="dot">&middot;</span>
+    <a href="https://github.com/MiaAI-Lab/Tetris-Battle-DS4F-Grok46-GLM-5.3-Qwen38-27b">GitHub</a>
+  </footer>
 </div>
+
+<script>
+/* ---- 6 contenders ---- */
+const PIECES = {
+  I:  'M0,16 h10 v10 h-10 z M10,16 h10 v10 h-10 z M20,16 h10 v10 h-10 z M30,16 h10 v10 h-10 z',
+  O:  'M10,10 h10 v10 h-10 z M20,10 h10 v10 h-10 z M10,20 h10 v10 h-10 z M20,20 h10 v10 h-10 z',
+  T:  'M10,10 h10 v10 h-10 z M20,10 h10 v10 h-10 z M30,10 h10 v10 h-10 z M20,20 h10 v10 h-10 z',
+  S:  'M10,10 h10 v10 h-10 z M20,10 h10 v10 h-10 z M0,20 h10 v10 h-10 z M10,20 h10 v10 h-10 z',
+  Z:  'M0,10 h10 v10 h-10 z M10,10 h10 v10 h-10 z M20,20 h10 v10 h-10 z M30,20 h10 v10 h-10 z',
+  J:  'M0,10 h10 v10 h-10 z M0,20 h10 v10 h-10 z M0,30 h10 v10 h-10 z M10,30 h10 v10 h-10 z',
+  L:  'M10,10 h10 v10 h-10 z M10,20 h10 v10 h-10 z M10,30 h10 v10 h-10 z M0,30 h10 v10 h-10 z'
+};
+
+const CONTENDERS = [
+  { file: 'tetris_ds4f-0731.html',  model: 'DeepSeek v4 Flash 0731', tag: 'TETRIS — Marathon',       size: '82 KB', piece: 'I', ac: '#6ee7ff', glow: 'rgba(110,231,255,.55)' },
+  { file: 'tetris_grok46.html',     model: 'Grok 4.6',               tag: 'TETRIS',                  size: '143 KB', piece: 'J', ac: '#ff8cc8', glow: 'rgba(255,140,200,.55)' },
+  { file: 'tetris_glm53.html',      model: 'GLM-5.3',                tag: 'TETRIS — Obsidian',       size: '67 KB', piece: 'L', ac: '#b388ff', glow: 'rgba(179,136,255,.6)' },
+  { file: 'tetris-qwen3.8-max.html',model: 'Qwen3.8-Max',            tag: 'TETRIS',                  size: '43 KB', piece: 'Z', ac: '#ffd166', glow: 'rgba(255,209,102,.55)' },
+  { file: 'tetris_qwen38_27b.html', model: 'Qwen3.8-27b',            tag: 'TETRIS — Modern Edition', size: '55 KB', piece: 'T', ac: '#7dffa8', glow: 'rgba(125,255,168,.5)' },
+  { file: 'tetris_kimi_k3.html',    model: 'Kimi K3',                tag: 'TETRIS — Modern Stacker', size: '44 KB', piece: 'S', ac: '#ffb36e', glow: 'rgba(255,179,110,.55)' }
+];
+
+function svgPiece(p, color, glow) {
+  return `<svg viewBox="0 0 40 40" width="44" height="44" aria-hidden="true">
+    <g fill="${color}" stroke="${color}" stroke-width="1">
+      ${PIECES[p]}
+    </g>
+  </svg>`;
+}
+
+function card(c, i) {
+  const style = `--ac:${c.ac}; --ac-glow:${c.glow};`;
+  return `
+  <a class="card" style="${style}" href="${c.file}" target="_blank" rel="noopener">
+    <span class="card-num">0${i + 1}</span>
+    <div class="piece-wrap">${svgPiece(c.piece, c.ac, c.glow)}</div>
+    <div>
+      <div class="meta-top">
+        <div>
+          <div class="model">${c.model}</div>
+          <div class="tagline">${c.tag}</div>
+        </div>
+      </div>
+    </div>
+    <div class="bottom">
+      <span class="size">${c.size}</span>
+      <span class="play">Play <span class="arr">&#8599;</span></span>
+    </div>
+  </a>`;
+}
+document.getElementById('grid').innerHTML = CONTENDERS.map(card).join('');
+
+/* ---- background: falling tetrominoes ---- */
+(function bg() {
+  const colors = ['#6ee7ff', '#ff8cc8', '#b388ff', '#ffd166', '#7dffa8', '#ffb36e'];
+  const shapes = ['M0,0 h10 v10 h-10 z', 'M0,0 h10 v10 h-10 z M10,0 h10 v10 h-10 z',
+                  'M0,0 h10 v10 h-10 z M10,0 h10 v10 h-10 z M20,0 h10 v10 h-10 z',
+                  'M0,0 h10 v10 h-10 z M10,0 h10 v10 h-10 z M0,10 h10 v10 h-10 z M10,10 h10 v10 h-10 z'];
+  const bgEl = document.getElementById('bg');
+  for (let i = 0; i < 14; i++) {
+    const d = shapes[i % shapes.length];
+    const s = 26 + Math.random() * 46;
+    const el = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    el.setAttribute('viewBox', '0 0 40 40');
+    el.setAttribute('width', s); el.setAttribute('height', s);
+    el.innerHTML = `<g fill="${colors[i % colors.length]}"><path d="${d}"/></g>`;
+    el.classList.add('piece');
+    el.style.left = Math.random() * 100 + 'vw';
+    el.style.animationDuration = (14 + Math.random() * 20) + 's';
+    el.style.animationDelay = (-Math.random() * 30) + 's';
+    el.style.opacity = .04 + Math.random() * .05;
+    bgEl.appendChild(el);
+  }
+})();
+</script>
 </body>
 </html>

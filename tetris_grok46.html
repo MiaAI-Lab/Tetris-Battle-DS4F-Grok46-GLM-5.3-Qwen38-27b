@@ -708,7 +708,7 @@
   const DEFAULTS = {
     das: 133,
     arr: 16,
-    sdf: 20,
+    sdf: 30,
     mus: 42,
     sfx: 70,
     startLevel: 1,
@@ -958,7 +958,10 @@
   function loadSettings() {
     try {
       const raw = JSON.parse(localStorage.getItem("tetris.handling") || "null");
-      return { ...DEFAULTS, ...(raw || {}) };
+      const next = { ...DEFAULTS, ...(raw || {}) };
+      // Original default (20×) felt like a crawl at level 1. Treat it as unset.
+      if (raw && (raw.sdf === 20 || raw.sdf === 41)) next.sdf = 30;
+      return next;
     } catch { return { ...DEFAULTS }; }
   }
   function saveSettings() {
@@ -1499,6 +1502,16 @@
     return true;
   }
 
+  function softTap() {
+    if (!G.cur || G.phase !== "play") return;
+    if (settings.sdf >= 41) {
+      while (move(0, 1, true)) {}
+    } else {
+      move(0, 1, true);
+    }
+    G.gravAcc = 0;
+  }
+
   function onShifted(dy) {
     if (G.cur.y > G.cur.lowestY) {
       G.cur.lowestY = G.cur.y;
@@ -1727,8 +1740,10 @@
   /* ---------------- input ---------------- */
   function bindKeys() {
     addEventListener("keydown", (e) => {
-      if (e.repeat) return;
       if (["ArrowLeft","ArrowRight","ArrowDown","ArrowUp","Space"].includes(e.code)) e.preventDefault();
+      // Swallow OS auto-repeat. e.repeat is missing on some Linux/WebKit setups,
+      // which was making every tap look like a held turbo key.
+      if (e.repeat || keys[e.code]) return;
       keys[e.code] = true;
       AudioFX.resume();
 
@@ -1752,6 +1767,7 @@
 
       if (e.code === "ArrowLeft") beginShift(-1);
       if (e.code === "ArrowRight") beginShift(1);
+      if (e.code === "ArrowDown") softTap();
       if (e.code === "KeyZ" || e.code === "ControlLeft" || e.code === "ControlRight") rotate(3);
       if (e.code === "KeyX" || e.code === "ArrowUp") rotate(1);
       if (e.code === "KeyA" || e.code === "KeyQ") rotate(2);
@@ -1762,6 +1778,7 @@
       keys[e.code] = false;
       if (e.code === "ArrowLeft") endShift(-1);
       if (e.code === "ArrowRight") endShift(1);
+      if (e.code === "ArrowDown") G.gravAcc = 0;
     });
     addEventListener("blur", () => {
       for (const k of Object.keys(keys)) keys[k] = false;
@@ -1913,8 +1930,8 @@
     const gms = gravityMs(G.level);
     const soft = !!keys.ArrowDown;
     const instantSoft = soft && settings.sdf >= 41;
-    let step = dt / gms;
-    if (soft && !instantSoft) step *= settings.sdf;
+    // Fixed medium fall: ~14ms/cell (~0.25s down the well). Not gravity-scaled.
+    const SOFT_MS = 14;
 
     if (!grounded) {
       G.lockT = 0;
@@ -1929,13 +1946,25 @@
           }
         }
         G.gravAcc = 0;
-      } else {
-        G.gravAcc += step;
+      } else if (soft) {
+        G.gravAcc += dt / SOFT_MS;
         while (G.gravAcc >= 1) {
           if (collides(G.board, { ...G.cur, y: G.cur.y + 1 })) break;
           G.cur.y++;
           G.lastRotate = false;
-          if (soft) G.score += 1;
+          G.score += 1;
+          if (G.cur.y > G.cur.lowestY) {
+            G.cur.lowestY = G.cur.y;
+            G.lockResets = 0;
+          }
+          G.gravAcc -= 1;
+        }
+      } else {
+        G.gravAcc += dt / gms;
+        while (G.gravAcc >= 1) {
+          if (collides(G.board, { ...G.cur, y: G.cur.y + 1 })) break;
+          G.cur.y++;
+          G.lastRotate = false;
           if (G.cur.y > G.cur.lowestY) {
             G.cur.lowestY = G.cur.y;
             G.lockResets = 0;
@@ -2176,7 +2205,7 @@
       const a = b.dataset.act;
       if (a === "left") { keys.ArrowLeft = true; beginShift(-1); }
       if (a === "right") { keys.ArrowRight = true; beginShift(1); }
-      if (a === "soft") keys.ArrowDown = true;
+      if (a === "soft") { keys.ArrowDown = true; softTap(); }
       if (a === "ccw") rotate(3);
       if (a === "cw") rotate(1);
       if (a === "flip") rotate(2);
