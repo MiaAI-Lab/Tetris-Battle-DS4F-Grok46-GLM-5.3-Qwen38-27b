@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tetris Battle Arena — DS4F vs Grok 4.6 vs GLM-5.3 vs Qwen3.8-27b</title>
+<style>
+  :root {
+    --bg: #0b0b10;
+    --panel: #14141c;
+    --text: #e8e8f0;
+    --muted: #9a9ab0;
+    --accent: #6ee7ff;
+    --border: #2a2a3a;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 4rem 1.5rem;
+  }
+  .wrap { max-width: 960px; width: 100%; text-align: center; }
+  h1 { font-size: 2.4rem; letter-spacing: 4px; text-transform: uppercase; margin-bottom: .5rem; }
+  .sub { color: var(--muted); margin-bottom: 3rem; }
+  a { text-decoration: none; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+  }
+  .card {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 1.2rem;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 1.6rem 1.4rem;
+    transition: transform .15s ease, border-color .15s ease, box-shadow .15s ease;
+    color: var(--text);
+  }
+  .card:hover {
+    transform: translateY(-3px);
+    border-color: var(--accent);
+    box-shadow: 0 8px 30px rgba(110, 231, 255, .15);
+  }
+  .model { font-size: 1.15rem; font-weight: 600; }
+  .title { color: var(--muted); font-size: .85rem; min-height: 2.2em; }
+  .size { color: var(--muted); font-size: .75rem; }
+  .play {
+    background: var(--accent);
+    color: #0b0b10;
+    font-weight: 700;
+    padding: .6rem;
+    border-radius: 8px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    font-size: .8rem;
+  }
+  footer { margin-top: 3rem; color: var(--muted); font-size: .8rem; }
+  footer a { color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Tetris Battle Arena</h1>
+  <p class="sub">Four models, one prompt, one-shot Tetris. Pick a contender — each opens in a new tab.</p>
+  <div class="grid">
+    <a class="card" href="tetris_ds4f-0731.html" target="_blank" rel="noopener">
+      <div>
+        <div class="model">DeepSeek v4 Flash 0731</div>
+        <div class="title">TETRIS — Marathon</div>
+      </div>
+      <div>
+        <div class="play">Play &#8599;</div>
+        <div class="size">ds4f-0731</div>
+      </div>
+    </a>
+    <a class="card" href="tetris_grok46.html" target="_blank" rel="noopener">
+      <div>
+        <div class="model">Grok 4.6</div>
+        <div class="title">TETRIS</div>
+      </div>
+      <div>
+        <div class="play">Play &#8599;</div>
+        <div class="size">grok46</div>
+      </div>
+    </a>
+    <a class="card" href="tetris_glm53.html" target="_blank" rel="noopener">
+      <div>
+        <div class="model">GLM-5.3</div>
+        <div class="title">TETRIS — Obsidian</div>
+      </div>
+      <div>
+        <div class="play">Play &#8599;</div>
+        <div class="size">glm53</div>
+      </div>
+    </a>
+    <a class="card" href="tetris_qwen38_27b.html" target="_blank" rel="noopener">
+      <div>
+        <div class="model">Qwen3.8-27b</div>
+        <div class="title">TETRIS — Modern Edition</div>
+      </div>
+      <div>
+        <div class="play">Play &#8599;</div>
+        <div class="size">qwen38_27b</div>
+      </div>
+    </a>
+  </div>
+  <footer><a href="README.md">About this battle</a></footer>
+</div>
+</body>
+</html>

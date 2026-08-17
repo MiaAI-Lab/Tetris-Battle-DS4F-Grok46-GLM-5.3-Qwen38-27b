@@ -1,0 +1,1804 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0a0e14">
+<title>TETRIS — Obsidian</title>
+<style>
+  /* ============ FOUNDATION ============ */
+  :root{
+    --bg0:#07090d; --bg1:#0a0e14; --bg2:#0e141d; --bg3:#131b27;
+    --ink:#dfe7f1; --ink-dim:#8494ab; --ink-faint:#4d5c72;
+    --line:#1c2635; --line-bright:#2a3a52;
+    --gold:#ffc95c; --gold-deep:#c98f2a;
+    --danger:#ff5d5d;
+    --cI:#3fd9e8; --cJ:#5a8dff; --cL:#ff9950; --cO:#f7d13c; --cS:#5ce87a; --cT:#c07aff; --cZ:#ff5d7e;
+    --glass: rgba(18,26,39,.72);
+  }
+  *,*::before,*::after{ margin:0; padding:0; box-sizing:border-box; }
+  html,body{ height:100%; }
+  body{
+    background: var(--bg1);
+    color: var(--ink);
+    font-family: 'Segoe UI', system-ui, -apple-system, Roboto, sans-serif;
+    overflow:hidden;
+    -webkit-user-select:none; user-select:none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+  /* deep-space ambience behind everything */
+  #space{
+    position:fixed; inset:0; z-index:0;
+    background:
+      radial-gradient(1200px 900px at 70% -10%, #101a2a 0%, transparent 60%),
+      radial-gradient(900px 700px at 12% 110%, #0d1420 0%, transparent 55%),
+      var(--bg0);
+  }
+  #nebula{ position:fixed; inset:0; z-index:0; opacity:.55; }
+  #stars{ position:fixed; inset:0; z-index:0; }
+
+  /* ============ LAYOUT ============ */
+  #app{
+    position:relative; z-index:2;
+    height:100%;
+    display:flex; align-items:center; justify-content:center;
+    padding: 12px;
+  }
+  #frame{
+    display:flex; gap:14px; align-items:stretch;
+  }
+  .panel{
+    background: var(--glass);
+    border:1px solid var(--line);
+    border-radius:14px;
+    box-shadow: 0 18px 50px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.04);
+  }
+  /* side columns */
+  .side{
+    display:flex; flex-direction:column; gap:12px; width:172px;
+    padding:14px; align-self:flex-start;
+  }
+  .side .block{ margin-bottom:14px; }
+  .side .block:last-child{ margin-bottom:0; }
+
+  .label{
+    font-size:10px; font-weight:700; letter-spacing:.22em;
+    color: var(--ink-faint); text-transform:uppercase;
+    margin-bottom:6px;
+  }
+  .value{
+    font: 700 24px/1.1 'Segoe UI', system-ui, sans-serif;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+    letter-spacing:.02em;
+  }
+  .value.gold{ color: var(--gold); text-shadow: 0 0 18px rgba(255,201,92,.35); }
+  .value.tiny{ font-size:15px; }
+
+  /* ============ STAGE ============ */
+  #stageWrap{
+    position:relative;
+    padding:10px;
+    background: linear-gradient(180deg, rgba(22,30,44,.6), rgba(10,14,20,.7));
+  }
+  #stage{ display:block; border-radius:8px; }
+  /* vignette over playfield */
+  #stageWrap::after{
+    content:''; position:absolute; inset:10px; border-radius:8px;
+    pointer-events:none;
+    background: radial-gradient(120% 100% at 50% 0%, transparent 62%, rgba(4,6,10,.55) 100%);
+    box-shadow: inset 0 0 60px rgba(0,0,0,.5);
+  }
+
+  /* corner brackets on the well */
+  .bracket{ position:absolute; width:16px; height:16px; pointer-events:none; }
+  .bracket.tl{ top:2px; left:2px; border-top:2px solid var(--line-bright); border-left:2px solid var(--line-bright); border-radius:4px 0 0 0; }
+  .bracket.tr{ top:2px; right:2px; border-top:2px solid var(--line-bright); border-right:2px solid var(--line-bright); border-radius:0 4px 0 0; }
+  .bracket.bl{ bottom:2px; left:2px; border-bottom:2px solid var(--line-bright); border-left:2px solid var(--line-bright); border-radius:0 0 0 4px; }
+  .bracket.br{ bottom:2px; right:2px; border-bottom:2px solid var(--line-bright); border-right:2px solid var(--line-bright); border-radius:0 0 4px 0; }
+
+  /* brand */
+  #brand{
+    text-align:center; margin-bottom:2px;
+  }
+  #brand h1{
+    font-size: clamp(26px, 5vh, 40px);
+    font-weight: 900; letter-spacing:.14em; line-height:1;
+    background: linear-gradient(180deg, #f4f8ff 20%, #9fb4d6 55%, #5f7699 100%);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    text-shadow: 0 8px 30px rgba(90,141,255,.15);
+    filter: drop-shadow(0 2px 12px rgba(70,110,200,.25));
+  }
+  #brand .sub{
+    font-size:9px; letter-spacing:.5em; color:var(--ink-faint);
+    text-transform:uppercase; margin-top:4px; text-indent:.5em;
+  }
+
+  /* level lamp */
+  #levelLamp{
+    display:flex; align-items:center; gap:10px;
+    background: rgba(10,15,23,.5); border:1px solid var(--line);
+    border-radius:10px; padding:10px 12px;
+  }
+  #levelLamp .lamp{
+    width:10px; height:26px; border-radius:3px;
+    background: var(--cT);
+    box-shadow: 0 0 12px var(--cT), 0 0 30px rgba(192,122,255,.4);
+    animation: lampPulse 2.4s ease-in-out infinite;
+  }
+  @keyframes lampPulse{ 0%,100%{ filter:brightness(1);} 50%{ filter:brightness(1.45);} }
+
+  /* next / hold canvases */
+  .boxCanvas{ display:block; margin:0 auto; }
+  #nextBox, #holdBox{ background: rgba(8,12,19,.45); border-radius:10px; padding:8px 6px; border:1px solid rgba(28,38,53,.7); }
+
+  /* stat rows */
+  .statRow{ display:flex; justify-content:space-between; align-items:baseline; padding:7px 2px; border-bottom:1px solid rgba(28,38,53,.5); }
+  .statRow:last-child{ border-bottom:none; }
+  .statRow .k{ font-size:10px; letter-spacing:.18em; color:var(--ink-dim); text-transform:uppercase; }
+  .statRow .v{ font:700 14px/1 'Segoe UI', system-ui, sans-serif; color:var(--ink); font-variant-numeric:tabular-nums; }
+
+  /* time + aps bar */
+  #apsBar{ height:3px; background:var(--bg3); border-radius:2px; overflow:hidden; margin-top:6px; }
+  #apsFill{ height:100%; width:0%; background:linear-gradient(90deg, var(--cJ), var(--cI)); border-radius:2px; }
+
+  /* mute + controls hint */
+  .btn{
+    display:block; width:100%;
+    background: rgba(16,23,35,.8); color: var(--ink-dim);
+    border:1px solid var(--line); border-radius:9px;
+    padding:9px 10px; font: 600 11px/1 'Segoe UI', system-ui, sans-serif;
+    letter-spacing:.14em; text-transform:uppercase; cursor:pointer;
+    transition: color .15s, border-color .15s, background .15s;
+  }
+  .btn:hover{ color:var(--ink); border-color:var(--line-bright); background:rgba(24,33,49,.9); }
+  .btn.on{ color:var(--gold); border-color:rgba(255,201,92,.4); }
+  .keys{ font-size:9.5px; color:var(--ink-faint); line-height:1.9; letter-spacing:.06em; }
+  .keys b{ color:var(--ink-dim); font-weight:600; }
+
+  /* ============ OVERLAYS ============ */
+  #overlay{
+    position:absolute; inset:10px; border-radius:8px;
+    display:flex; align-items:center; justify-content:center;
+    background: radial-gradient(90% 90% at 50% 40%, rgba(8,12,19,.82), rgba(5,7,11,.94));
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    z-index:5; text-align:center; padding:20px;
+  }
+  #overlay.hidden{ display:none; }
+  #overlay .ovTitle{
+    font-size: clamp(30px, 6vh, 52px); font-weight:900; letter-spacing:.1em; line-height:1.05;
+    background: linear-gradient(180deg,#fff, #b9cbe8 60%, #7d93b8);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    filter: drop-shadow(0 4px 24px rgba(90,141,255,.35));
+    margin-bottom:14px;
+  }
+  #overlay .ovSub{ font-size:12px; letter-spacing:.28em; color:var(--ink-dim); text-transform:uppercase; margin-bottom:26px; }
+  #overlay .ovStats{ font-size:12px; color:var(--ink-dim); line-height:2.1; letter-spacing:.08em; margin-bottom:26px; }
+  #overlay .ovStats b{ color:var(--gold); font-weight:700; }
+  .cta{
+    display:inline-block; padding:13px 34px;
+    border-radius:12px; cursor:pointer;
+    background: linear-gradient(180deg, #2b3a54, #1a2436);
+    border:1px solid #3a4c6b;
+    color:#fff; font:700 13px/1 'Segoe UI',system-ui,sans-serif; letter-spacing:.24em; text-transform:uppercase;
+    box-shadow: 0 10px 30px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.12);
+    transition: transform .12s, box-shadow .12s;
+  }
+  .cta:hover{ transform:translateY(-1px); box-shadow: 0 14px 36px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.16); }
+  .cta:active{ transform:translateY(1px); }
+  .cta .key{ display:block; margin-top:7px; font-size:9px; letter-spacing:.3em; color:rgba(255,255,255,.55); font-weight:600; }
+
+  /* toast area */
+  #toasts{ position:fixed; left:50%; top:8%; transform:translateX(-50%); z-index:20; pointer-events:none; text-align:center; }
+
+  /* flash + shake layers */
+  #flash{ position:absolute; inset:0; z-index:4; pointer-events:none; opacity:0; border-radius:10px; }
+
+  /* ============ MOBILE ============ */
+  #touchUI{ display:none; }
+  @media (pointer:coarse){
+    #touchUI{ display:flex; }
+    body{ padding-bottom: env(safe-area-inset-bottom); }
+    .keys{ display:none; }
+  }
+  #touchUI{
+    position:fixed; left:0; right:0; bottom:0; z-index:10;
+    gap:10px; padding:10px 14px calc(10px + env(safe-area-inset-bottom));
+    justify-content:space-between; align-items:flex-end;
+  }
+  .tbtn{
+    flex:1; height:52px; border-radius:12px;
+    background: rgba(20,29,44,.85); border:1px solid var(--line-bright);
+    color:var(--ink-dim); display:flex; align-items:center; justify-content:center;
+    font-size:20px; touch-action:none;
+  }
+  .tbtn:active{ background:rgba(36,50,73,.95); color:#fff; }
+  .tbtn.wide{ flex:1.6; }
+  .tbtn small{ font-size:9px; letter-spacing:.2em; color:var(--ink-faint); }
+
+  @media (max-width:860px){
+    #app{ padding:8px; }
+    #frame{ gap:8px; }
+    .side{ width:120px; padding:10px; gap:8px; }
+    .side .block{ margin-bottom:8px; }
+    .value{ font-size:19px; }
+    #brand h1{ font-size:20px; }
+    #brand .sub{ font-size:7px; letter-spacing:.32em; }
+    .keys{ display:none; }
+  }
+  @media (max-width:560px){
+    #app{ padding:4px; }
+    #frame{ gap:6px; }
+    #brand{ display:none; }
+    .side.right .block.stats, .side.right .block.hintBlock{ display:none; }
+    .side{ width:80px; padding:6px; gap:6px; }
+    #stageWrap{ padding:6px; }
+    #nextBox{ padding:6px 2px; }
+    #holdBox{ padding:6px 2px; }
+    .value{ font-size:16px; }
+    .label{ font-size:8px; letter-spacing:.14em; }
+  }
+  @media (max-width:359px){
+    #app{ padding:2px; }
+    #frame{ gap:4px; }
+    .side{ width:70px; padding:4px; }
+    #stageWrap{ padding:4px; }
+    .bracket{ width:10px; height:10px; }
+  }
+  @media (prefers-reduced-motion: reduce){
+    #levelLamp .lamp{ animation:none; }
+  }
+</style>
+</head>
+<body>
+<div id="space"></div>
+<canvas id="nebula"></canvas>
+<canvas id="stars"></canvas>
+<div id="toasts"></div>
+
+<div id="app">
+  <div id="frame">
+
+    <!-- LEFT COLUMN -->
+    <div class="panel side left">
+      <div id="brand">
+        <h1>TETRIS</h1>
+        <div class="sub">obsidian</div>
+      </div>
+      <div class="block">
+        <div class="label">Hold</div>
+        <div id="holdBox"><canvas id="hold" class="boxCanvas"></canvas></div>
+      </div>
+      <div id="levelLamp" class="block">
+        <div class="lamp"></div>
+        <div>
+          <div class="label" style="margin-bottom:2px">Level</div>
+          <div class="value" id="level">1</div>
+        </div>
+      </div>
+      <div class="block">
+        <div class="label">Goal</div>
+        <div class="value tiny" id="goal">10 lines</div>
+      </div>
+    </div>
+
+    <!-- CENTER: PLAYFIELD -->
+    <div class="panel" id="stageWrap">
+      <div class="bracket tl"></div><div class="bracket tr"></div>
+      <div class="bracket bl"></div><div class="bracket br"></div>
+      <canvas id="stage"></canvas>
+      <div id="flash"></div>
+      <div id="overlay">
+        <div>
+          <div class="ovTitle" id="ovTitle">TETRIS</div>
+          <div class="ovSub" id="ovSub">obsidian edition</div>
+          <div class="ovStats" id="ovStats"></div>
+          <div class="cta" id="cta">
+            <span id="ctaLabel">Start Game</span>
+            <span class="key">press enter</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT COLUMN -->
+    <div class="panel side right">
+      <div class="block">
+        <div class="label">Score</div>
+        <div class="value gold" id="score">0</div>
+        <div id="apsBar"><div id="apsFill"></div></div>
+      </div>
+      <div class="block">
+        <div class="label">Next</div>
+        <div id="nextBox"><canvas id="next" class="boxCanvas"></canvas></div>
+      </div>
+      <div class="block stats">
+        <div class="label">Stats</div>
+        <div class="statRow"><span class="k">Lines</span><span class="v" id="lines">0</span></div>
+        <div class="statRow"><span class="k">Pieces</span><span class="v" id="pieces">0</span></div>
+        <div class="statRow"><span class="k">Time</span><span class="v" id="time">0:00</span></div>
+        <div class="statRow"><span class="k">PPS</span><span class="v" id="pps">0.00</span></div>
+        <div class="statRow"><span class="k">Best</span><span class="v" id="best">0</span></div>
+      </div>
+      <div class="block hintBlock">
+        <button class="btn" id="muteBtn" type="button">Sound: Off</button>
+        <div style="height:8px"></div>
+        <div class="keys">
+          <b>&#8592; &#8594;</b> move &nbsp; <b>&#8593;</b> rotate cw<br>
+          <b>Z</b> ccw &nbsp; <b>&#8595;</b> soft drop<br>
+          <b>Space</b> hard drop &nbsp; <b>C</b> hold<br>
+          <b>P</b> pause &nbsp; <b>R</b> restart
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MOBILE CONTROLS -->
+<div id="touchUI">
+  <div class="tbtn" id="tLeft">&#9664;</div>
+  <div class="tbtn" id="tRight">&#9654;</div>
+  <div class="tbtn" id="tRot">&#8635;</div>
+  <div class="tbtn" id="tDrop">&#8681;</div>
+  <div class="tbtn wide" id="tHold"><small>HOLD</small></div>
+</div>
+
+<script>
+'use strict';
+/* ============================================================
+   TETRIS — OBSIDIAN EDITION
+   Single-file. No external assets. Canvas 2D + WebAudio.
+   Guideline-compliant: SRS + wall kicks, 7-bag, hold, previews,
+   ghost piece, lock delay, T-spins, combos, back-to-back.
+   ============================================================ */
+(function(){
+'use strict';
+
+/* ---------- tuning ---------- */
+const COLS = 10, ROWS = 20, HIDDEN = 2;          // 2 hidden rows above the visible field
+const BOARD_W = COLS, BOARD_H = ROWS + HIDDEN;   // logical board includes hidden rows
+const VERSION = '1.0';
+
+/* ---------- SRS piece definitions ----------
+   Each piece starts as its SPAWN state only (list of [x,y] cell offsets,
+   x right / y down, inside the piece's bounding box: 4x4 for I, 3x3 for
+   J/L/S/T/Z, O is fixed). buildRotations() derives states 1-3. */
+const SHAPES = {
+  I: [[[0,1],[1,1],[2,1],[3,1]]],
+  J: [[[0,0],[0,1],[1,1],[2,1]]],
+  L: [[[2,0],[0,1],[1,1],[2,1]]],
+  O: [[[1,0],[2,0],[1,1],[2,1]]],
+  S: [[[1,0],[2,0],[0,1],[1,1]]],
+  T: [[[1,0],[0,1],[1,1],[2,1]]],
+  Z: [[[0,0],[1,0],[1,1],[2,1]]]
+};
+/* CW rotation in an n×n box: (x,y) -> (n-1-y, x) */
+(function buildRotations(){
+  const N = { I:4, J:3, L:3, O:2, S:3, T:3, Z:3 };
+  for (const k of Object.keys(SHAPES)){
+    if (k === 'O'){ SHAPES.O = [SHAPES.O[0],SHAPES.O[0],SHAPES.O[0],SHAPES.O[0]]; continue; }
+    const n = N[k];
+    const states = [ SHAPES[k][0] ];
+    let cur = SHAPES[k][0];
+    for (let r = 1; r < 4; r++){
+      const rotated = cur.map(([x,y]) => [ n-1-y, x ]);
+      rotated.sort((a,b)=> (a[1]-b[1]) || (a[0]-b[0]));
+      states.push(rotated);
+      cur = rotated;
+    }
+    SHAPES[k] = states;
+  }
+})();
+
+/* ---------- SRS wall kicks (converted to y-down: official +y is up, so y negated) ---------- */
+const KICKS_JLSTZ = {
+  '0>1': [[0,0],[-1,0],[-1,-1],[0,2],[-1,2]],
+  '1>0': [[0,0],[1,0],[1,1],[0,-2],[1,-2]],
+  '1>2': [[0,0],[1,0],[1,1],[0,-2],[1,-2]],
+  '2>1': [[0,0],[-1,0],[-1,-1],[0,2],[-1,2]],
+  '2>3': [[0,0],[1,0],[1,-1],[0,2],[1,2]],
+  '3>2': [[0,0],[-1,0],[-1,1],[0,-2],[-1,-2]],
+  '3>0': [[0,0],[-1,0],[-1,1],[0,-2],[-1,-2]],
+  '0>3': [[0,0],[1,0],[1,-1],[0,2],[1,2]]
+};
+const KICKS_I = {
+  '0>1': [[0,0],[-2,0],[1,0],[-2,1],[1,-2]],
+  '1>0': [[0,0],[2,0],[-1,0],[2,-1],[-1,2]],
+  '1>2': [[0,0],[-1,0],[2,0],[-1,-2],[2,1]],
+  '2>1': [[0,0],[1,0],[-2,0],[1,2],[-2,-1]],
+  '2>3': [[0,0],[2,0],[-1,0],[2,-1],[-1,2]],
+  '3>2': [[0,0],[-2,0],[1,0],[-2,1],[1,-2]],
+  '3>0': [[0,0],[1,0],[-2,0],[1,2],[-2,-1]],
+  '0>3': [[0,0],[-1,0],[2,0],[-1,-2],[2,1]]
+};
+/* ---------- palette (jewel tones on obsidian — no default-rainbow slop) ---------- */
+const PIECES = ['I','J','L','O','S','T','Z'];
+const COLORS = {
+  I: { base:'#25b6d4', hi:'#7ff0ff', lo:'#0e6d84', glow:'#3fd9e8' },  // glacial cyan
+  J: { base:'#3f6ce0', hi:'#8fb2ff', lo:'#1d3a8f', glow:'#5a8dff' },  // sapphire
+  L: { base:'#e8842e', hi:'#ffc48a', lo:'#8f470f', glow:'#ff9950' },  // amber
+  O: { base:'#d9b32a', hi:'#ffec8a', lo:'#8f7410', glow:'#f7d13c' },  // gold
+  S: { base:'#3db95c', hi:'#9df2b2', lo:'#1e6e33', glow:'#5ce87a' },  // emerald
+  T: { base:'#9257d8', hi:'#d4b0ff', lo:'#5b2f96', glow:'#c07aff' },  // amethyst
+  Z: { base:'#d94164', hi:'#ff9db4', lo:'#8f1f3a', glow:'#ff5d7e' }   // ruby
+};
+
+/* ---------- gravity: guideline curve, seconds per row ---------- */
+function gravityFor(level){
+  return Math.max(0.001, Math.pow(0.8 - (level-1)*0.007, level-1));
+}
+
+/* ---------- scoring (guideline) ---------- */
+const SCORE_TABLE = [0,100,300,500,800];          // single/double/triple/tetris
+const TSPIN_TABLE = [400,800,1200,1600];          // tspin 0/1/2/3 lines
+const TSPIN_MINI  = [100,200,400];                // mini 0/1/2 lines
+const COMBO_BONUS = 50;                           // x combo x level
+const B2B_BONUS   = 1.5;                          // multiplier on tetris/tspin
+const SOFT_DROP_PTS = 1, HARD_DROP_PTS = 2;       // per cell
+const ALL_CLEAR = 3500;                           // perfect clear bonus (guideline solo values)
+const PERFECT_TABLE = [800,1200,1800,2000];       // PC: single/double/triple/tetris
+
+/* ============================================================
+   AUDIO — tiny synth + sequencer (Tetris theme "Korobeiniki",
+   public-domain folk melody) + SFX. Everything procedural.
+   ============================================================ */
+const AudioEngine = {
+  ctx:null, master:null, musicGain:null, sfxGain:null, on:false,
+  seqTimer:null, nextNoteTime:0, step:0,
+  init(){
+    if (this.ctx) return true;
+    try{
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return false;
+      this.ctx = new AC();
+      this.master = this.ctx.createGain(); this.master.gain.value = 0.9;
+      const comp = this.ctx.createDynamicsCompressor();
+      comp.threshold.value = -18; comp.knee.value = 24; comp.ratio.value = 8;
+      this.master.connect(comp); comp.connect(this.ctx.destination);
+      this.musicGain = this.ctx.createGain(); this.musicGain.gain.value = 0.5;
+      this.musicGain.connect(this.master);
+      this.sfxGain = this.ctx.createGain(); this.sfxGain.gain.value = 0.85;
+      this.sfxGain.connect(this.master);
+      return true;
+    }catch(e){ this.ctx = null; return false; }
+  },
+  resume(){ if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume(); },
+  enable(){
+    if (!this.init()) return false;
+    this.resume(); this.on = true; return true;
+  },
+  disable(){ this.on = false; this.stopMusic(); },
+  now(){ return this.ctx ? this.ctx.currentTime : 0; },
+
+  /* --- primitive voices --- */
+  tone(freq, dur, {type='square', vol=0.2, attack=0.005, decay=null, dest=null, when=0, slide=0}={}){
+    if (!this.ctx || !this.on) return;
+    const t = Math.max(this.now(), when);
+    const o = this.ctx.createOscillator(), g = this.ctx.createGain();
+    o.type = type; o.frequency.setValueAtTime(freq, t);
+    if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(30, freq*slide), t+dur);
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(vol, t+attack);
+    if (decay){ g.gain.exponentialRampToValueAtTime(0.0001, t+decay); }
+    else { g.gain.setValueAtTime(vol, t+Math.max(attack, dur-0.01)); g.gain.linearRampToValueAtTime(0.0001, t+dur); }
+    o.connect(g); g.connect(dest || this.sfxGain);
+    o.start(t); o.stop(t+dur+0.05);
+  },
+  noise(dur, {vol=0.2, filterFreq=2000, q=1, type='highpass', when=0, slideTo=0}={}){
+    if (!this.ctx || !this.on) return;
+    const t = Math.max(this.now(), when);
+    const len = Math.max(1, Math.floor(this.ctx.sampleRate * dur));
+    const buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i=0;i<len;i++) d[i] = Math.random()*2-1;
+    const src = this.ctx.createBufferSource(); src.buffer = buf;
+    const f = this.ctx.createBiquadFilter(); f.type = type; f.frequency.setValueAtTime(filterFreq, t); f.Q.value = q;
+    if (slideTo) f.frequency.exponentialRampToValueAtTime(slideTo, t+dur);
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t+dur);
+    src.connect(f); f.connect(g); g.connect(this.sfxGain);
+    src.start(t); src.stop(t+dur+0.02);
+  },
+
+  /* --- game SFX --- */
+  sfx(name, opt={}){
+    if (!this.on || !this.ctx) return;
+    switch(name){
+      case 'move':   this.tone(220, .04, {type:'square', vol:.06}); break;
+      case 'rotate': this.tone(340, .05, {type:'square', vol:.07}); break;
+      case 'lock':   this.tone(150, .07, {type:'triangle', vol:.16}); break;
+      case 'softstep': break;
+      case 'hold':   this.tone(300,.05,{vol:.08}); this.tone(450,.06,{vol:.08, when:this.now()+.05}); break;
+      case 'hard':   this.noise(.09,{vol:.28, filterFreq:900, type:'lowpass'}); this.tone(90,.1,{type:'triangle',vol:.3, slide:.5}); break;
+      case 'clear': {
+        const base = opt.lines===4 ? 523.25 : 392;
+        [0,1,2].forEach(i => this.tone(base*Math.pow(2,[0,4,7][i]/12), .16, {type:'square', vol:.14, when:this.now()+i*.055}));
+        if (opt.lines===4) this.noise(.25,{vol:.18, filterFreq:3000, slideTo:6000});
+        break;
+      }
+      case 'tspin': [0,3,7,12].forEach((s,i)=> this.tone(440*Math.pow(2,s/12), .12, {type:'sawtooth', vol:.09, when:this.now()+i*.05})); break;
+      case 'level': [0,4,7,12,16].forEach((s,i)=> this.tone(523.25*Math.pow(2,s/12), .14, {type:'square', vol:.13, when:this.now()+i*.07})); break;
+      case 'combo': this.tone(440*Math.pow(2, Math.min(opt.n,10)/12), .08, {type:'square', vol:.11}); break;
+      case 'over':  [0,-2,-5,-9].forEach((s,i)=> this.tone(220*Math.pow(2,s/12), .3, {type:'sawtooth', vol:.12, when:this.now()+i*.14})); break;
+      case 'pc':    [0,4,7,12,7,12,16,19].forEach((s,i)=> this.tone(523.25*Math.pow(2,s/12), .13, {type:'triangle', vol:.13, when:this.now()+i*.06})); break;
+      case 'b2b':   this.noise(.3,{vol:.15, filterFreq:1500, slideTo:5000}); break;
+    }
+  },
+
+  /* --- music: Korobeiniki lead + bass, 16th-note grid --- */
+  // lead: [midi, length-in-16ths] (0 = rest). 8 bars of 4/4, 16 sixteenths/bar.
+  MELODY: [
+    [76,4],[71,2],[72,2],[74,4],[72,2],[71,2],          // E5 B4 C5 D5 C5 B4
+    [69,4],[69,2],[72,2],[76,4],[74,2],[72,2],          // A4 A4 C5 E5 D5 C5
+    [71,6],[72,2],[74,4],[76,4],                        // B4. C5 D5 E5
+    [72,4],[69,4],[69,4],[0,4],                         // C5 A4 A4 (rest)
+    [74,4],[77,2],[81,4],[79,2],[77,4],                 // D5 F5 A5 G5 F5(q)
+    [76,6],[72,2],[76,4],[74,2],[72,2],                 // E5. C5 E5 D5 C5
+    [71,4],[71,2],[72,2],[74,4],[76,4],                 // B4 B4 C5 D5 E5
+    [72,4],[69,4],[69,8]                                // C5 A4 A4(half)
+  ],
+  // bass roots per half-bar (16 entries)
+  BASSLINE: [
+    'A2','A2', 'E2','E2', 'A2','A2', 'A2','E2',
+    'D2','D2', 'A2','A2', 'E2','E2', 'A2','A2'
+  ],
+  NOTE_FREQ(n){ return 440 * Math.pow(2, (n-69)/12); },
+  STRUM_FREQ(name){
+    const map = {C:0,D:2,E:4,F:5,G:7,A:9,B:11};
+    const semis = map[name[0]] + (name.includes('#')?1:0) + 12*(parseInt(name.slice(-1),10)+1);
+    return 440 * Math.pow(2,(semis-69)/12);
+  },
+  musicTempo: 150,     // BPM
+  musicIntensity: 0,   // 0..1 drives hats/snare energy with level
+  leadEvents: null, loopLen: 128,
+  buildEvents(){
+    this.leadEvents = {};
+    let pos = 0;
+    for (const ev of this.MELODY){
+      if (ev[0]) this.leadEvents[pos] = { midi: ev[0], len: ev[1] };
+      pos += ev[1];
+    }
+    this.loopLen = pos;
+  },
+  startMusic(){
+    if (!this.ctx || !this.on || this.seqTimer) return;
+    if (!this.leadEvents) this.buildEvents();
+    this.step = 0; this.nextNoteTime = this.now() + 0.08;
+    const scheduler = () => {
+      if (!this.on) return;
+      const spb = 60 / this.musicTempo / 4;   // seconds per 16th
+      while (this.nextNoteTime < this.now() + 0.12){
+        this.scheduleStep(this.step, this.nextNoteTime, spb);
+        this.nextNoteTime += spb;
+        this.step = (this.step + 1) % this.loopLen;
+      }
+    };
+    this.seqTimer = setInterval(scheduler, 40);
+  },
+  stopMusic(){
+    if (this.seqTimer){ clearInterval(this.seqTimer); this.seqTimer = null; }
+  },
+  scheduleStep(step, t, spb){
+    if (!this.leadEvents) this.buildEvents();
+    // lead voice (square + sub-octave triangle for warmth)
+    const ev = this.leadEvents[step];
+    if (ev){
+      const f = this.NOTE_FREQ(ev.midi);
+      const dur = ev.len * spb * 0.92;
+      this.tone(f, dur, {type:'square', vol:.08, attack:.004, dest:this.musicGain, when:t, decay:dur});
+      this.tone(f/2, dur, {type:'triangle', vol:.05, attack:.004, dest:this.musicGain, when:t, decay:dur});
+    }
+    // bass on every half-bar
+    if (step % 8 === 0){
+      const note = this.BASSLINE[(step >> 3) % this.BASSLINE.length];
+      const f = this.STRUM_FREQ(note);
+      this.tone(f, .22, {type:'triangle', vol:.17, attack:.004, dest:this.musicGain, when:t, decay:.25});
+      if (this.musicIntensity > .4 && step % 16 === 8)
+        this.tone(f*2, .1, {type:'square', vol:.04, dest:this.musicGain, when:t, decay:.12});
+    }
+    // hats / snare scale with level
+    if (this.musicIntensity > .25 && step % 2 === 0)
+      this.noise(.03, {vol:.012 + .02*this.musicIntensity, filterFreq:7000, type:'highpass', when:t, dest:this.musicGain});
+    if (this.musicIntensity > .55 && step % 8 === 4)
+      this.noise(.08, {vol:.04 + .04*this.musicIntensity, filterFreq:1800, type:'bandpass', q:1.2, when:t, dest:this.musicGain});
+  }
+};
+/* ============================================================
+   GAME STATE
+   ============================================================ */
+const LOCK_MS = 500;    // lock delay
+const CLEAR_MS = 300;   // line clear animation
+
+const Game = {
+  board: [],            // [y][x] -> piece letter or null (y=0..1 hidden)
+  active: null,         // { type, rot, x, y }
+  queue: [], bag: [],
+  hold: null, holdUsed: false,
+  score: 0, lines: 0, level: 1, goal: 10,
+  pieces: 0, elapsed: 0, startTime: 0, playing: false, paused: false, over: false,
+  gravityAcc: 0, lockTimer: 0, grounded: false, softDropping: false,
+  maxLockResets: 15, lockResets: 0,
+  combo: -1, b2b: false,
+  lastAction: '', lastKick: [0,0], lastKickIndex: 0,
+  stats: { I:0, J:0, L:0, O:0, S:0, T:0, Z:0 },
+  best: 0,
+  flashAlpha: 0, shake: 0,
+  clearing: [], clearAnim: 0, clearSnapshot: [],
+  hardDropTrail: null,   // {cells, dist} for the drop streak effect
+
+  newBoard(){
+    this.board = [];
+    for (let y=0; y<BOARD_H; y++) this.board.push(new Array(COLS).fill(null));
+  },
+  reset(){
+    this.newBoard();
+    this.queue = []; this.bag = [];
+    this.hold = null; this.holdUsed = false;
+    this.score = 0; this.lines = 0; this.level = 1; this.goal = 10;
+    this.pieces = 0; this.elapsed = 0;
+    this.playing = true; this.paused = false; this.over = false;
+    this.gravityAcc = 0; this.lockTimer = 0; this.grounded = false; this.softDropping = false;
+    this.combo = -1; this.b2b = false;
+    this.lastAction = ''; this.lastKick = [0,0]; this.lastKickIndex = 0;
+    this.stats = { I:0, J:0, L:0, O:0, S:0, T:0, Z:0 };
+    this.clearing = []; this.clearAnim = 0; this.clearSnapshot = [];
+    this.flashAlpha = 0; this.shake = 0; this.hardDropTrail = null;
+    for (let i=0;i<6;i++) this.queue.push(this.pull());
+    this.spawn();
+    UI.sync();
+  },
+
+  /* ---------- 7-bag randomizer ---------- */
+  pull(){
+    if (this.bag.length === 0){
+      this.bag = PIECES.slice();
+      for (let i=this.bag.length-1; i>0; i--){
+        const j = Math.floor(Math.random()*(i+1));
+        [this.bag[i], this.bag[j]] = [this.bag[j], this.bag[i]];
+      }
+    }
+    return this.bag.pop();
+  },
+
+  /* ---------- piece geometry ---------- */
+  cells(type, rot, px, py){
+    const shape = SHAPES[type][((rot%4)+4)%4];
+    const out = [];
+    for (const [dx,dy] of shape) out.push([px+dx, py+dy]);
+    return out;
+  },
+  fits(type, rot, px, py){
+    for (const [x,y] of this.cells(type, rot, px, py)){
+      if (x < 0 || x >= COLS || y >= BOARD_H) return false;
+      if (y >= 0 && this.board[y][x]) return false;
+    }
+    return true;
+  },
+  spawn(fromHold){
+    const type = fromHold || this.queue.shift();
+    if (!fromHold) this.queue.push(this.pull());
+    const piece = { type, rot: 0, x: 3, y: 1 };   // bottom row lands at first visible row
+    if (!this.fits(type, 0, piece.x, piece.y)){
+      if (this.fits(type, 0, piece.x, piece.y-1)) piece.y -= 1;
+      else { this.topOut(); return false; }
+    }
+    this.active = piece;
+    this.lockResets = 0; this.lockTimer = 0; this.grounded = false;
+    this.gravityAcc = 0;
+    this.lastAction = ''; this.lastKick = [0,0]; this.lastKickIndex = 0;
+    if (!fromHold){
+      this.pieces++; this.stats[type]++;
+      UI.dirtyNext = true;
+    }
+    return true;
+  },
+  topOut(){
+    this.playing = false; this.over = true;
+    AudioEngine.stopMusic();
+    AudioEngine.sfx('over');
+    if (this.score > this.best){
+      this.best = this.score;
+      try{ localStorage.setItem('tetris_obsidian_best', String(this.score)); }catch(e){}
+    }
+    FX.gameOverBurst();
+    UI.showOver('GAME OVER', this.summary());
+    UI.sync();
+  },
+  summary(){
+    const m = Math.floor(this.elapsed/60000), s = Math.floor(this.elapsed/1000)%60;
+    return `Score <b>${this.score.toLocaleString()}</b> &middot; Lines ${this.lines} &middot; Level ${this.level}<br>` +
+           `Time ${m}:${String(s).padStart(2,'0')} &middot; ${this.pieces} pieces &middot; PPS ${(this.pieces/Math.max(1,this.elapsed/1000)).toFixed(2)}`;
+  },
+
+  /* ---------- movement ---------- */
+  move(dx, dy){
+    if (!this.playing || this.paused || !this.active || this.clearing.length) return false;
+    if (this.fits(this.active.type, this.active.rot, this.active.x+dx, this.active.y+dy)){
+      this.active.x += dx; this.active.y += dy;
+      if (dx !== 0) this.lastAction = 'move';
+      if (this.groundedNow()) this.lockReset();
+      else this.grounded = false;
+      return true;
+    }
+    return false;
+  },
+  rotate(dir){   // dir: 1 = CW, -1 = CCW
+    if (!this.playing || this.paused || !this.active || this.clearing.length) return false;
+    const a = this.active;
+    if (a.type === 'O'){ this.lastAction = 'rotate'; return true; }
+    const from = a.rot, to = (a.rot + dir + 4) % 4;
+    const table = a.type === 'I' ? KICKS_I : KICKS_JLSTZ;
+    const kicks = table[from + '>' + to];
+    if (!kicks) return false;
+    for (let i=0;i<kicks.length;i++){
+      const kx = kicks[i][0], ky = kicks[i][1];
+      if (this.fits(a.type, to, a.x+kx, a.y+ky)){
+        a.x += kx; a.y += ky; a.rot = to;
+        this.lastAction = 'rotate';
+        this.lastKick = [kx, ky];
+        this.lastKickIndex = i;
+        if (this.groundedNow()) this.lockReset();
+        return true;
+      }
+    }
+    return false;
+  },
+  setSoftDrop(on){
+    if (on === this.softDropping) return;
+    this.softDropping = on;
+    this.gravityAcc = 0;   // rate changed — never reinterpret accumulated slow-gravity time at soft-drop rate
+    if (on){
+      this.softGrace = 0.06;   // grace window: a quick tap moves exactly 1 row
+      if (this.playing && !this.paused && !this.over && this.active && !this.clearing.length
+          && this.fits(this.active.type, this.active.rot, this.active.x, this.active.y+1)){
+        this.active.y++;
+        this.score += SOFT_DROP_PTS;   // first tap drops the first row instantly (snappy, precise)
+      }
+    }
+  },
+  hardDrop(){
+    if (!this.playing || this.paused || !this.active || this.clearing.length) return;
+    const a = this.active;
+    const fromY = a.y;
+    let n = 0;
+    while (this.fits(a.type, a.rot, a.x, a.y+1)){ a.y++; n++; }
+    if (n > 0){
+      this.score += n * HARD_DROP_PTS;
+      this.lastAction = 'hd';
+      this.hardDropTrail = { type: a.type, cells: this.cells(a.type, a.rot, a.x, a.y), dist: n, t: 0 };
+      FX.dropBurst(a, fromY);
+    }
+    this.lockPiece();
+  },
+  holdPiece(){
+    if (!this.playing || this.paused || !this.active || this.holdUsed || this.clearing.length) return;
+    const cur = this.active.type;
+    if (this.hold){
+      const swapped = this.hold;
+      this.hold = cur;
+      this.holdUsed = true;
+      this.spawn(swapped);
+    } else {
+      this.hold = cur;
+      this.holdUsed = true;
+      this.spawn();
+    }
+    UI.dirtyHold = true; UI.dirtyNext = true;
+    AudioEngine.sfx('hold');
+  },
+
+  /* ---------- lock delay ---------- */
+  groundedNow(){
+    if (!this.active) return false;
+    return !this.fits(this.active.type, this.active.rot, this.active.x, this.active.y+1);
+  },
+  lockReset(){
+    if (this.lockResets < this.maxLockResets){
+      this.lockTimer = 0;
+      this.lockResets++;
+    }
+  },
+
+  /* ---------- T-spin detection (3-corner rule + fin-kick exception) ---------- */
+  detectTSpin(){
+    const a = this.active;
+    if (!a || a.type !== 'T' || this.lastAction !== 'rotate') return { tspin:false, mini:false };
+    const cx = a.x + 1, cy = a.y + 1;   // center of the T's 3x3 box
+    const corners = [
+      [cx-1, cy-1], [cx+1, cy-1],   // 0:TL 1:TR
+      [cx-1, cy+1], [cx+1, cy+1]    // 2:BL 3:BR
+    ];
+    const occ = (x,y) => {
+      if (x<0 || x>=COLS || y>=BOARD_H) return true;   // walls/floor count as filled
+      if (y<0) return false;
+      return !!this.board[y][x];
+    };
+    let filled = 0;
+    for (const c of corners) if (occ(c[0], c[1])) filled++;
+    if (filled < 3) return { tspin:false, mini:false };
+    // front corners = the two corners flanking the direction the T points
+    const FRONT = { 0:[0,1], 1:[1,3], 2:[2,3], 3:[0,2] };
+    const pair = FRONT[a.rot];
+    const frontFilled = occ(corners[pair[0]][0], corners[pair[0]][1]) && occ(corners[pair[1]][0], corners[pair[1]][1]);
+    const finKick = this.lastKickIndex === 4;   // TST kick upgrades mini to full
+    const mini = !frontFilled && !finKick;
+    return { tspin:true, mini };
+  },
+
+  /* ---------- locking & clearing ---------- */
+  lockPiece(){
+    const a = this.active;
+    if (!a) return;
+    const tspin = this.detectTSpin();
+    for (const [x,y] of this.cells(a.type, a.rot, a.x, a.y)){
+      if (y >= 0 && y < BOARD_H) this.board[y][x] = a.type;
+    }
+    FX.lockBurst(a);
+    this.active = null;
+    this.holdUsed = false;          // hold re-arms when the next piece spawns
+    AudioEngine.sfx('lock');
+
+    const full = [];
+    for (let y=0; y<BOARD_H; y++){
+      if (this.board[y].every(c => c !== null)) full.push(y);
+    }
+    if (full.length){
+      this.startClear(full, tspin);
+    } else {
+      this.combo = -1;
+      if (tspin.tspin){
+        const pts = tspin.mini ? TSPIN_MINI[0] : TSPIN_TABLE[0];
+        this.score += pts * this.level;
+        UI.popup(tspin.mini ? 'T-SPIN MINI' : 'T-SPIN', '#c07aff');
+        AudioEngine.sfx('tspin');
+      }
+      this.spawn();   // next piece immediately
+    }
+    UI.sync();
+  },
+  startClear(rows, tspin){
+    this.clearing = rows;
+    this.clearAnim = 0;
+    this.clearSnapshot = rows.map(y => ({ y, cells: this.board[y].slice() }));
+
+    // combo
+    this.combo++;
+    if (this.combo >= 1){
+      this.score += COMBO_BONUS * this.combo * this.level;
+      UI.popup('COMBO ×' + (this.combo+1), '#5a8dff');
+      AudioEngine.sfx('combo', {n:this.combo});
+    }
+
+    // score the clear
+    const n = rows.length;
+    let pts, label, color = '#f4f8ff';
+    const difficult = (n === 4) || (tspin.tspin && !tspin.mini);
+    if (tspin.tspin){
+      pts = tspin.mini ? (TSPIN_MINI[n] || 400) : TSPIN_TABLE[n];
+      label = (tspin.mini ? 'T-SPIN MINI ' : 'T-SPIN ') + ['','SINGLE','DOUBLE','TRIPLE'][n];
+      color = '#c07aff';
+    } else {
+      pts = SCORE_TABLE[n];
+      label = ['','SINGLE','DOUBLE','TRIPLE','TETRIS'][n];
+      if (n === 4) color = '#3fd9e8';
+    }
+    if (difficult && this.b2b){
+      pts = Math.floor(pts * B2B_BONUS);
+      label = 'B2B ' + label;
+      color = '#ffc95c';
+      AudioEngine.sfx('b2b');
+    }
+    this.b2b = difficult;
+    this.score += pts * this.level;
+    this.lines += n;
+
+    // perfect clear: no filled cells remain outside the cleared rows
+    let anyLeft = false;
+    for (let y=0; y<BOARD_H && !anyLeft; y++){
+      if (rows.indexOf(y) === -1){
+        for (let x=0; x<COLS; x++){ if (this.board[y][x]){ anyLeft = true; break; } }
+      }
+    }
+    if (!anyLeft){
+      this.score += (PERFECT_TABLE[n-1] || 800) * this.level;
+      label += ' · PERFECT CLEAR';
+      color = '#5ce87a';
+      AudioEngine.sfx('pc');
+    }
+
+    UI.popup(label, color);
+    AudioEngine.sfx('clear', {lines:n});
+    this.flashAlpha = Math.max(this.flashAlpha, n===4 ? .45 : tspin.tspin ? .3 : .18);
+    this.shake = Math.max(this.shake, n===4 ? 10 : tspin.tspin ? 6 : n===3 ? 4 : 2);
+
+    // level progress (fixed goal)
+    const oldLevel = this.level;
+    this.goal -= n;
+    while (this.goal <= 0){ this.level++; this.goal += 10; }
+    if (this.level > oldLevel){
+      AudioEngine.sfx('level');
+      UI.popup('LEVEL ' + this.level, '#ffc95c');
+      AudioEngine.musicIntensity = Math.min(1, (this.level-1)/12);
+      UI.sync();
+    }
+  },
+  finishClear(){
+    FX.rowBurst(this.clearSnapshot);
+    this.board = this.board.filter((row,y) => this.clearing.indexOf(y) === -1);
+    while (this.board.length < BOARD_H) this.board.unshift(new Array(COLS).fill(null));
+    this.clearing = [];
+    this.clearSnapshot = [];
+    this.spawn();
+    UI.sync();
+  },
+  tick(dt){
+    if (!this.playing || this.paused || this.over) return;
+    this.elapsed += dt;
+    if (this.clearing.length){
+      this.clearAnim += dt;
+      if (this.clearAnim >= CLEAR_MS) this.finishClear();
+      return;
+    }
+    if (!this.active) return;
+    // gravity — soft drop is 20x gravity but never faster than 40 rows/s,
+    // and never more than 3 rows in a single frame (no teleporting)
+    const gravSec = gravityFor(this.level);
+    const per = this.softDropping ? Math.max(gravSec/20, 0.025) : gravSec;
+    if (per > 0){
+      if (this.softDropping && this.softGrace > 0){
+        this.softGrace -= dt/1000;      // inside the tap-grace window: hold accrual
+      } else {
+        this.gravityAcc += dt/1000;
+      }
+      let steps = Math.floor(this.gravityAcc / per);
+      this.gravityAcc -= steps * per;
+      if (this.gravityAcc < 0) this.gravityAcc = 0;
+      if (this.softDropping) steps = Math.min(steps, 3);
+      while (steps-- > 0){
+        if (this.active && this.fits(this.active.type, this.active.rot, this.active.x, this.active.y+1)){
+          this.active.y++;
+          if (this.softDropping) this.score += SOFT_DROP_PTS;
+        } else break;
+      }
+    }
+    // lock delay
+    if (this.groundedNow()){
+      this.grounded = true;
+      this.lockTimer += dt;
+      if (this.lockTimer >= LOCK_MS) this.lockPiece();
+    } else {
+      this.grounded = false;
+      this.lockTimer = 0;
+    }
+  }
+};
+/* ============================================================
+   RENDERING — sprites, stage, previews, particles, ambience
+   ============================================================ */
+const DPR = Math.min(window.devicePixelRatio || 1, 2);
+const stage = document.getElementById('stage');
+const sctx = stage.getContext('2d');
+const nextCv = document.getElementById('next');
+const nctx = nextCv.getContext('2d');
+const holdCv = document.getElementById('hold');
+const hctx = holdCv.getContext('2d');
+
+const Render = {
+  cell: 30, mini: 11,
+  sprites: {},           // type -> offscreen canvas
+  gridLayer: null,       // cached grid
+  LEVEL_TINTS: [190, 215, 235, 260, 285, 320, 35, 55, 5, 160],  // hue per (level-1)%10
+
+  layout(){
+    // fit the 20-row field into the viewport with panel chrome
+    const availH = window.innerHeight - 90;
+    const availW = Math.floor(window.innerWidth * 0.46);
+    this.cell = Math.max(16, Math.min(44, Math.floor(Math.min(availH / ROWS, availW / COLS))));
+    this.mini = Math.max(7, Math.round(this.cell * 0.38));
+    const w = COLS * this.cell, h = ROWS * this.cell;
+    stage.width = w * DPR; stage.height = h * DPR;
+    stage.style.width = w + 'px'; stage.style.height = h + 'px';
+    // next: 5 slots of 4x2 mini cells
+    const nw = this.mini * 4 + 16, nh = this.mini * 2 * 5 + 8 * 4 + 8;
+    nextCv.width = nw * DPR; nextCv.height = nh * DPR;
+    nextCv.style.width = nw + 'px'; nextCv.style.height = nh + 'px';
+    // hold: one slot
+    const hw = this.mini * 4 + 16, hh = this.mini * 2 + 12;
+    holdCv.width = hw * DPR; holdCv.height = hh * DPR;
+    holdCv.style.width = hw + 'px'; holdCv.style.height = hh + 'px';
+    this.buildSprites();
+    this.buildGrid();
+    UI.dirtyNext = true; UI.dirtyHold = true;
+  },
+
+  /* ---------- pre-baked jewel block sprites ---------- */
+  buildSprites(){
+    const px = this.cell * DPR;
+    for (const t of PIECES){
+      const c = COLORS[t];
+      const cv = document.createElement('canvas');
+      cv.width = px; cv.height = px;
+      const g = cv.getContext('2d');
+      const inset = Math.max(1, px * 0.045);
+      const x = inset, y = inset, s = px - inset * 2;
+      const r = s * 0.22;
+
+      // drop shadow (soft, contained)
+      g.shadowColor = 'rgba(0,0,0,.55)';
+      g.shadowBlur = px * 0.12;
+      g.shadowOffsetY = px * 0.05;
+      // body gradient: hi -> base -> lo
+      const grad = g.createLinearGradient(0, 0, 0, px);
+      grad.addColorStop(0, c.hi);
+      grad.addColorStop(0.35, c.base);
+      grad.addColorStop(1, c.lo);
+      roundRect(g, x, y, s, s, r);
+      g.fillStyle = grad;
+      g.fill();
+      g.shadowColor = 'transparent';
+
+      // rim light (top edge)
+      const rim = g.createLinearGradient(0, y, 0, y + s * 0.45);
+      rim.addColorStop(0, 'rgba(255,255,255,.65)');
+      rim.addColorStop(1, 'rgba(255,255,255,0)');
+      roundRect(g, x + s * 0.08, y + s * 0.05, s * 0.84, s * 0.4, r * 0.8);
+      g.fillStyle = rim;
+      g.fill();
+
+      // bottom inner shadow
+      const bot = g.createLinearGradient(0, y + s * 0.6, 0, y + s);
+      bot.addColorStop(0, 'rgba(0,0,0,0)');
+      bot.addColorStop(1, 'rgba(0,0,0,.4)');
+      roundRect(g, x + s * 0.06, y + s * 0.55, s * 0.88, s * 0.42, r * 0.8);
+      g.fillStyle = bot;
+      g.fill();
+
+      // specular glint
+      g.globalAlpha = 0.85;
+      g.fillStyle = 'rgba(255,255,255,.9)';
+      const gw = s * 0.16;
+      g.beginPath();
+      g.ellipse(x + s * 0.26, y + s * 0.2, gw, gw * 0.62, -0.5, 0, Math.PI * 2);
+      g.fill();
+      g.globalAlpha = 1;
+
+      // crisp border
+      roundRect(g, x + 0.5, y + 0.5, s - 1, s - 1, r);
+      g.strokeStyle = 'rgba(0,0,0,.45)';
+      g.lineWidth = Math.max(1, px * 0.02);
+      g.stroke();
+      roundRect(g, x + 1.5, y + 1.5, s - 3, s - 3, r * 0.85);
+      g.strokeStyle = 'rgba(255,255,255,.14)';
+      g.lineWidth = 1;
+      g.stroke();
+
+      this.sprites[t] = cv;
+    }
+  },
+
+  buildGrid(){
+    const w = stage.width, h = stage.height, cell = this.cell * DPR;
+    const cv = document.createElement('canvas');
+    cv.width = w; cv.height = h;
+    const g = cv.getContext('2d');
+    // playfield base
+    const bg = g.createLinearGradient(0, 0, 0, h);
+    bg.addColorStop(0, '#0a0f17');
+    bg.addColorStop(1, '#070a10');
+    g.fillStyle = bg;
+    g.fillRect(0, 0, w, h);
+    // level tint (subtle, shifts as you climb)
+    const hue = this.LEVEL_TINTS[(Game.level - 1) % this.LEVEL_TINTS.length];
+    const tint = g.createRadialGradient(w / 2, h * 0.25, 0, w / 2, h * 0.25, h * 0.75);
+    tint.addColorStop(0, `hsla(${hue},60%,50%,.06)`);
+    tint.addColorStop(1, 'hsla(0,0%,0%,0)');
+    g.fillStyle = tint;
+    g.fillRect(0, 0, w, h);
+    // hairline grid
+    g.strokeStyle = 'rgba(160,190,230,.05)';
+    g.lineWidth = 1;
+    g.beginPath();
+    for (let i = 1; i < COLS; i++){ g.moveTo(i * cell + .5, 0); g.lineTo(i * cell + .5, h); }
+    for (let j = 1; j < ROWS; j++){ g.moveTo(0, j * cell + .5); g.lineTo(w, j * cell + .5); }
+    g.stroke();
+    // column guides every 5? too busy — skip. Danger zone marker instead:
+    g.strokeStyle = 'rgba(255,93,93,.10)';
+    g.setLineDash([4 * DPR, 6 * DPR]);
+    g.beginPath();
+    g.moveTo(0, 4 * cell + .5); g.lineTo(w, 4 * cell + .5);
+    g.stroke();
+    g.setLineDash([]);
+    this.gridLayer = cv;
+  },
+
+  drawBlock(ctx, gx, gy, type, cellSize, alpha = 1){
+    const spr = this.sprites[type];
+    if (!spr) return;
+    ctx.globalAlpha = alpha;
+    ctx.drawImage(spr, gx * cellSize, gy * cellSize, cellSize, cellSize);
+    ctx.globalAlpha = 1;
+  },
+
+  /* ---------- main stage draw ---------- */
+  draw(){
+    const cell = this.cell * DPR;
+    sctx.setTransform(1, 0, 0, 1, 0, 0);
+    sctx.clearRect(0, 0, stage.width, stage.height);
+    sctx.drawImage(this.gridLayer, 0, 0);
+
+    // settled cells
+    for (let y = HIDDEN; y < BOARD_H; y++){
+      const row = Game.board[y];
+      if (!row) continue;
+      const isClearing = Game.clearing.indexOf(y) !== -1;
+      for (let x = 0; x < COLS; x++){
+        const t = row[x];
+        if (!t) continue;
+        const vy = y - HIDDEN;
+        if (isClearing){
+          const p = Math.min(1, Game.clearAnim / CLEAR_MS);        // 0..1
+          const flash = Math.sin(p * Math.PI);                     // rise & fall
+          const scale = 1 - p * 0.9;
+          sctx.save();
+          sctx.translate((x + .5) * cell, (vy + .5) * cell);
+          sctx.scale(scale, scale);
+          sctx.drawImage(this.sprites[t], -cell / 2, -cell / 2, cell, cell);
+          sctx.globalAlpha = flash * 0.9;
+          sctx.fillStyle = '#ffffff';
+          roundRect(sctx, -cell / 2 + 2, -cell / 2 + 2, cell - 4, cell - 4, cell * 0.18);
+          sctx.fill();
+          sctx.restore();
+        } else {
+          this.drawBlock(sctx, x, vy, t, cell);
+        }
+      }
+    }
+
+    // danger glow when stack is high
+    let highest = BOARD_H;
+    outer:
+    for (let y = 0; y < BOARD_H; y++){
+      for (let x = 0; x < COLS; x++){
+        if (Game.board[y][x]){ highest = y; break outer; }
+      }
+    }
+    if (Game.playing && highest - HIDDEN < 5){
+      const urgency = 1 - Math.max(0, highest - HIDDEN) / 5;
+      const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 240);
+      const dg = sctx.createLinearGradient(0, 0, 0, cell * 5);
+      dg.addColorStop(0, `rgba(255,60,70,${0.16 * urgency * (0.6 + 0.4 * pulse)})`);
+      dg.addColorStop(1, 'rgba(255,60,70,0)');
+      sctx.fillStyle = dg;
+      sctx.fillRect(0, 0, stage.width, cell * 5);
+    }
+
+    // hard drop trail
+    if (Game.hardDropTrail && Game.hardDropTrail.t < 160){
+      const tr = Game.hardDropTrail;
+      const a = 1 - tr.t / 160;
+      sctx.globalAlpha = a * 0.28;
+      sctx.fillStyle = COLORS[tr.type].glow;
+      const cols = {};
+      for (const [x, y] of tr.cells){ cols[x] = Math.min(cols[x] === undefined ? 999 : cols[x], y); }
+      for (const x of Object.keys(cols)){
+        const top = cols[x];
+        const startVy = Math.max(0, top - HIDDEN - tr.dist);
+        const endVy = top - HIDDEN;
+        if (endVy > 0){
+          sctx.fillRect(x * cell + cell * 0.18, startVy * cell, cell * 0.64, (endVy - startVy) * cell);
+        }
+      }
+      sctx.globalAlpha = 1;
+    }
+
+    // ghost + active piece
+    if (Game.active && Game.playing && !Game.clearing.length){
+      const a = Game.active;
+      // ghost
+      let gy = a.y;
+      while (Game.fits(a.type, a.rot, a.x, gy + 1)) gy++;
+      if (gy !== a.y){
+        const c = COLORS[a.type];
+        for (const [x, y] of Game.cells(a.type, a.rot, a.x, gy)){
+          const vy = y - HIDDEN;
+          if (vy < 0) continue;
+          sctx.globalAlpha = 0.13;
+          sctx.fillStyle = c.glow;
+          roundRect(sctx, x * cell + cell * 0.07, vy * cell + cell * 0.07, cell * 0.86, cell * 0.86, cell * 0.16);
+          sctx.fill();
+          sctx.globalAlpha = 0.5;
+          sctx.strokeStyle = c.glow;
+          sctx.lineWidth = Math.max(1.5, cell * 0.04);
+          roundRect(sctx, x * cell + cell * 0.07, vy * cell + cell * 0.07, cell * 0.86, cell * 0.86, cell * 0.16);
+          sctx.stroke();
+          sctx.globalAlpha = 1;
+        }
+      }
+      // active — pulse brighter as lock delay runs out
+      let lockBlend = 0;
+      if (Game.grounded) lockBlend = Math.min(0.55, Game.lockTimer / LOCK_MS * 0.55);
+      for (const [x, y] of this.activeCells()){
+        const vy = y - HIDDEN;
+        if (vy < -1) continue;
+        this.drawBlock(sctx, x, vy, a.type, cell, vy < 0 ? 0.45 : 1);
+        if (lockBlend > 0){
+          sctx.globalAlpha = lockBlend * (0.6 + 0.4 * Math.sin(performance.now() / 90));
+          sctx.fillStyle = '#ffffff';
+          sctx.fillRect(x * cell, vy * cell, cell, cell);
+          sctx.globalAlpha = 1;
+        }
+      }
+    }
+
+    // particles
+    FX.drawParticles(sctx, cell);
+    // popups
+    FX.drawPopups(sctx, cell);
+  },
+
+  activeCells(){
+    const a = Game.active;
+    return Game.cells(a.type, a.rot, a.x, a.y);
+  },
+
+  /* ---------- next / hold previews ---------- */
+  drawPieceMini(ctx, type, cx, cy, cellSize, dimmed){
+    const shape = SHAPES[type][0];
+    let minX = 9, maxX = -1, minY = 9, maxY = -1;
+    for (const [x, y] of shape){
+      minX = Math.min(minX, x); maxX = Math.max(maxX, x);
+      minY = Math.min(minY, y); maxY = Math.max(maxY, y);
+    }
+    const w = (maxX - minX + 1) * cellSize, h = (maxY - minY + 1) * cellSize;
+    const ox = cx - w / 2 - minX * cellSize, oy = cy - h / 2 - minY * cellSize;
+    ctx.globalAlpha = dimmed ? 0.35 : 1;
+    for (const [x, y] of shape){
+      ctx.drawImage(this.sprites[type], ox + x * cellSize, oy + y * cellSize, cellSize, cellSize);
+    }
+    ctx.globalAlpha = 1;
+  },
+  drawNext(){
+    const cw = nextCv.width, ch = nextCv.height;
+    nctx.setTransform(1, 0, 0, 1, 0, 0);
+    nctx.clearRect(0, 0, cw, ch);
+    const slotH = ch / 5;
+    for (let i = 0; i < 5; i++){
+      const type = Game.queue[i];
+      if (!type) break;
+      const emph = i === 0;
+      const cs = this.mini * DPR * (emph ? 1.25 : 1);
+      this.drawPieceMini(nctx, type, cw / 2, slotH * i + slotH / 2, cs, false);
+      if (emph){
+        nctx.fillStyle = 'rgba(160,190,230,.10)';
+        nctx.fillRect(4, slotH * i + 2, cw - 8, slotH - 4);
+        // redraw piece over the marker bg
+        this.drawPieceMini(nctx, type, cw / 2, slotH * i + slotH / 2, cs, false);
+      }
+    }
+  },
+  drawHold(){
+    const cw = holdCv.width, ch = holdCv.height;
+    hctx.setTransform(1, 0, 0, 1, 0, 0);
+    hctx.clearRect(0, 0, cw, ch);
+    if (Game.hold){
+      this.drawPieceMini(hctx, Game.hold, cw / 2, ch / 2, this.mini * DPR, Game.holdUsed);
+    }
+  }
+};
+
+function roundRect(g, x, y, w, h, r){
+  r = Math.min(r, w / 2, h / 2);
+  g.beginPath();
+  g.moveTo(x + r, y);
+  g.arcTo(x + w, y, x + w, y + h, r);
+  g.arcTo(x + w, y + h, x, y + h, r);
+  g.arcTo(x, y + h, x, y, r);
+  g.arcTo(x, y, x + w, y, r);
+  g.closePath();
+}
+
+/* ============================================================
+   FX — particles, popups, shake, flash
+   ============================================================ */
+const FX = {
+  particles: [], popups: [],
+  MAX_P: 320,
+
+  spawnParticle(x, y, color, opt = {}){
+    if (this.particles.length >= this.MAX_P) return;
+    const spd = opt.spd || 0.5;
+    this.particles.push({
+      x, y,
+      vx: (Math.random() - 0.5) * 2 * spd * cellPx(),
+      vy: (opt.up ? -1 : 1) * (0.2 + Math.random() * 0.9) * spd * cellPx(),
+      life: opt.life || 500,
+      born: performance.now(),
+      size: (opt.size || 0.12) * cellPx(),
+      color, grav: opt.grav === undefined ? 1 : opt.grav
+    });
+  },
+  lockBurst(a){
+    const c = COLORS[a.type];
+    for (const [x, y] of Game.cells(a.type, a.rot, a.x, a.y)){
+      if (y >= HIDDEN){
+        this.spawnParticle(x + 0.5, y - HIDDEN + 0.9, c.glow, { spd: 0.8, size: 0.1, life: 380, up: true, grav: 1 });
+      }
+    }
+  },
+  dropBurst(a, fromY){
+    const c = COLORS[a.type];
+    for (const [x, y] of Game.cells(a.type, a.rot, a.x, a.y)){
+      this.spawnParticle(x + 0.5, y - HIDDEN + 1, c.hi, { spd: 1.6, size: 0.14, life: 420, up: true, grav: 1.4 });
+    }
+  },
+  rowBurst(snapshot){
+    for (const row of snapshot){
+      row.cells.forEach((t, x) => {
+        if (!t) return;
+        const c = COLORS[t];
+        for (let k = 0; k < 2; k++){
+          this.spawnParticle(x + 0.3 + Math.random() * 0.4, row.y - HIDDEN + 0.5, k ? '#ffffff' : c.hi,
+            { spd: 2 + Math.random(), size: 0.13, life: 550, up: Math.random() < 0.7, grav: 1.2 });
+        }
+      });
+    }
+  },
+  gameOverBurst(){
+    let count = 0;
+    for (let y = HIDDEN; y < BOARD_H && count < 220; y++){
+      for (let x = 0; x < COLS; x++){
+        const t = Game.board[y][x];
+        if (t && Math.random() < 0.6){
+          this.spawnParticle(x + 0.5, y - HIDDEN + 0.5, COLORS[t].hi, { spd: 2.4, size: 0.15, life: 900, grav: 0.8 });
+          count++;
+        }
+      }
+    }
+  },
+
+  drawParticles(ctx, cell){
+    const now = performance.now();
+    this.particles = this.particles.filter(p => now - p.born < p.life);
+    for (const p of this.particles){
+      const age = (now - p.born) / p.life;
+      const x = p.x * cell, y = p.y * cell;
+      const a = 1 - age;
+      ctx.globalAlpha = a * a;
+      ctx.fillStyle = p.color;
+      const s = p.size * (1 - age * 0.5);
+      ctx.fillRect(x - s / 2, y - s / 2, s, s);
+    }
+    ctx.globalAlpha = 1;
+  },
+
+  popup(text, color){
+    this.popups.push({ text, color, born: performance.now(), life: 1000 });
+    if (this.popups.length > 4) this.popups.shift();
+  },
+  drawPopups(ctx, cell){
+    const now = performance.now();
+    this.popups = this.popups.filter(p => now - p.born < p.life);
+    let i = 0;
+    for (const p of this.popups){
+      const age = (now - p.born) / p.life;
+      const rise = easeOut(age) * 2.2;
+      const y = stage.height * 0.34 - rise * cell + i * cell * 0.9;
+      const alpha = age < 0.7 ? 1 : 1 - (age - 0.7) / 0.3;
+      const scale = age < 0.12 ? 0.6 + (age / 0.12) * 0.4 : 1;
+      const fs = cell * 0.62 * scale;
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.font = `900 ${fs}px 'Segoe UI', system-ui, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.shadowColor = p.color;
+      ctx.shadowBlur = cell * 0.5;
+      ctx.fillStyle = p.color;
+      ctx.fillText(p.text, stage.width / 2, y);
+      ctx.shadowBlur = 0;
+      ctx.lineWidth = Math.max(2, cell * 0.045);
+      ctx.strokeStyle = 'rgba(5,8,12,.8)';
+      ctx.strokeText(p.text, stage.width / 2, y);
+      ctx.restore();
+      i++;
+    }
+  },
+
+  tick(dt){
+    // advance particles
+    for (const p of this.particles){
+      p.x += (p.vx * dt) / 1000;
+      p.y += (p.vy * dt) / 1000;
+      if (p.grav) p.vy += cellPx() * 3.4 * dt / 1000;
+    }
+    if (Game.hardDropTrail){
+      Game.hardDropTrail.t += dt;
+      if (Game.hardDropTrail.t >= 160) Game.hardDropTrail = null;
+    }
+  }
+};
+function cellPx(){ return Render.cell * DPR; }
+function easeOut(t){ return 1 - Math.pow(1 - t, 3); }
+
+/* ============================================================
+   AMBIENCE — starfield + nebula
+   ============================================================ */
+const Ambience = {
+  stars: [],
+  init(){
+    this.makeStars();
+    this.paintNebula();
+  },
+  makeStars(){
+    const cv = document.getElementById('stars');
+    cv.width = window.innerWidth * DPR; cv.height = window.innerHeight * DPR;
+    this.starCv = cv;
+    this.stars = [];
+    const n = Math.floor((window.innerWidth * window.innerHeight) / 9000);
+    for (let i = 0; i < n; i++){
+      this.stars.push({
+        x: Math.random() * cv.width, y: Math.random() * cv.height,
+        s: (Math.random() < 0.85 ? 1 : 2) * DPR,
+        phase: Math.random() * Math.PI * 2,
+        speed: 0.3 + Math.random() * 1.2,
+        warm: Math.random() < 0.18
+      });
+    }
+  },
+  paintNebula(){
+    const cv = document.getElementById('nebula');
+    cv.width = window.innerWidth * DPR; cv.height = window.innerHeight * DPR;
+    const g = cv.getContext('2d');
+    g.clearRect(0, 0, cv.width, cv.height);
+    const blobs = [
+      [0.72, 0.2, 0.55, '38,70,120', 0.16],
+      [0.15, 0.75, 0.5, '60,40,110', 0.14],
+      [0.4, 0.05, 0.4, '20,90,90', 0.10],
+      [0.9, 0.85, 0.45, '30,60,100', 0.10]
+    ];
+    for (const [bx, by, br, rgb, a] of blobs){
+      const r = Math.max(cv.width, cv.height) * br;
+      const grad = g.createRadialGradient(cv.width * bx, cv.height * by, 0, cv.width * bx, cv.height * by, r);
+      grad.addColorStop(0, `rgba(${rgb},${a})`);
+      grad.addColorStop(1, `rgba(${rgb},0)`);
+      g.fillStyle = grad;
+      g.fillRect(0, 0, cv.width, cv.height);
+    }
+  },
+  draw(t){
+    const cv = this.starCv, g = cv.getContext('2d');
+    g.clearRect(0, 0, cv.width, cv.height);
+    for (const s of this.stars){
+      const tw = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(t / 1000 * s.speed + s.phase));
+      g.globalAlpha = tw * 0.8;
+      g.fillStyle = s.warm ? '#ffe9c4' : '#cfe0ff';
+      g.fillRect(s.x, s.y, s.s, s.s);
+    }
+    g.globalAlpha = 1;
+  },
+  resize(){
+    this.makeStars();
+    this.paintNebula();
+  }
+};
+/* ============================================================
+   UI — DOM sync + overlays
+   ============================================================ */
+const UI = {
+  el: {},
+  dirtyNext: true, dirtyHold: true,
+  lastTimeStr: '', flashColor: '255,255,255',
+  init(){
+    const ids = ['overlay','ovTitle','ovSub','ovStats','cta','ctaLabel','score','lines','pieces',
+                 'time','pps','best','level','goal','muteBtn','flash','stageWrap','apsFill'];
+    for (const id of ids) this.el[id] = document.getElementById(id);
+    try{ Game.best = parseInt(localStorage.getItem('tetris_obsidian_best')||'0',10) || 0; }catch(e){}
+  },
+  sync(){
+    const e = this.el;
+    e.score.textContent  = Game.score.toLocaleString();
+    e.lines.textContent  = Game.lines;
+    e.pieces.textContent = Game.pieces;
+    e.level.textContent  = Game.level;
+    e.goal.textContent   = Math.max(0, Game.goal) + ' lines';
+    e.best.textContent   = Game.best.toLocaleString();
+    const pps = Game.elapsed > 0 ? (Game.pieces / (Game.elapsed/1000)) : 0;
+    e.pps.textContent = pps.toFixed(2);
+    e.apsFill.style.width = Math.min(100, pps * 60) + '%';
+  },
+  syncTime(){
+    const m = Math.floor(Game.elapsed/60000), s = Math.floor(Game.elapsed/1000)%60;
+    const str = m + ':' + String(s).padStart(2,'0');
+    if (str !== this.lastTimeStr){ this.lastTimeStr = str; this.el.time.textContent = str; }
+  },
+  showOver(title, statsHtml){
+    this.el.ovTitle.textContent = title;
+    this.el.ovSub.textContent = 'obsidian edition';
+    this.el.ovStats.innerHTML = statsHtml || '';
+    this.el.ctaLabel.textContent = 'Play Again';
+    this.el.overlay.classList.remove('hidden');
+  },
+  showPause(){
+    this.el.ovTitle.textContent = 'PAUSED';
+    this.el.ovSub.textContent = 'take a breath';
+    this.el.ovStats.innerHTML = `Score <b>${Game.score.toLocaleString()}</b> &middot; Lines ${Game.lines} &middot; Level ${Game.level}`;
+    this.el.ctaLabel.textContent = 'Resume';
+    this.el.overlay.classList.remove('hidden');
+  },
+  hideOverlay(){ this.el.overlay.classList.add('hidden'); },
+  popup(text, color){ FX.popup(text, color); }
+};
+
+/* ============================================================
+   INPUT — keyboard (DAS/ARR) + touch
+   ============================================================ */
+const DAS = 150, ARR = 35;
+const Input = {
+  keys: {},
+  dir: 0, dirHeld: { '-1': false, '1': false }, dasTimer: 0, arrTimer: 0,
+  last: null,
+
+  init(){
+    window.addEventListener('keydown', (e) => {
+      const k = e.code;
+      if (['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Space'].includes(k)) e.preventDefault();
+      if (e.repeat) return;
+      this.keys[k] = true;
+      this.onKey(k, true);
+    });
+    window.addEventListener('keyup', (e) => {
+      this.keys[e.code] = false;
+      this.onKey(e.code, false);
+    });
+    // clear stuck input when tab loses focus
+    window.addEventListener('blur', () => { this.releaseAll(); });
+
+    // touch buttons
+    const bind = (id, down, up) => {
+      const el = document.getElementById(id);
+      el.addEventListener('touchstart', (e) => { e.preventDefault(); down(); }, { passive:false });
+      el.addEventListener('touchend',   (e) => { e.preventDefault(); if (up) up(); },   { passive:false });
+      el.addEventListener('mousedown',  (e) => { e.preventDefault(); down(); });
+      el.addEventListener('mouseup',    (e) => { e.preventDefault(); if (up) up(); });
+    };
+    bind('tLeft',  () => this.pressDir(-1), () => this.pressDir(0));
+    bind('tRight', () => this.pressDir(1),  () => this.pressDir(0));
+    bind('tRot',   () => this.rotate(1));
+    bind('tDrop',  () => Game.hardDrop());
+    bind('tHold',  () => Game.holdPiece());
+
+    // swipe gestures on the stage (uses changedTouches, iOS-safe)
+    this.gesture = null;
+    const st = document.getElementById('stageWrap');
+    st.addEventListener('touchstart', (e) => {
+      const t = e.changedTouches[0];
+      this.gesture = { x: t.clientX, y: t.clientY, t: performance.now(), moved: false, lastX: t.clientX, acc: 0 };
+    }, { passive:true });
+    st.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      if (!this.gesture) return;
+      const t = e.changedTouches[0];
+      const cell = Render.cell;
+      const dxTot = t.clientX - this.gesture.x, dyTot = t.clientY - this.gesture.y;
+      const step = t.clientX - this.gesture.lastX;
+      this.gesture.acc += step;
+      while (Math.abs(this.gesture.acc) >= cell){
+        const d = this.gesture.acc > 0 ? 1 : -1;
+        if (Game.move(d, 0)){ AudioEngine.sfx('move'); }
+        this.gesture.acc -= d * cell;
+        this.gesture.moved = true;
+      }
+      this.gesture.lastX = t.clientX;
+      if (Math.abs(dxTot) > 12 || Math.abs(dyTot) > 12) this.gesture.moved = true;
+    }, { passive:false });
+    st.addEventListener('touchend', (e) => {
+      if (!this.gesture) return;
+      const t = e.changedTouches[0];
+      const dx = t.clientX - this.gesture.x, dy = t.clientY - this.gesture.y;
+      const dt = performance.now() - this.gesture.t;
+      if (!this.gesture.moved && dt < 300){
+        this.rotate(1);
+      } else if (dy > 70 && Math.abs(dx) < 60){
+        Game.hardDrop();
+      } else if (dy < -70 && Math.abs(dx) < 60){
+        Game.holdPiece();
+      } else if (Math.abs(dx) > 24 && dy < 70 && dt < 400 && !this.gesture.moved){
+        // quick horizontal flick = single nudge (moves already applied via touchmove)
+        Game.move(dx > 0 ? 1 : -1, 0);
+      }
+      this.gesture = null;
+    }, { passive:true });
+  },
+
+  releaseAll(){
+    this.keys = {};
+    this.dir = 0; this.dirHeld = { '-1': false, '1': false };
+    Game.setSoftDrop(false);
+  },
+  pressDir(d){
+    if (d === 0){
+      this.dirHeld['-1'] = false; this.dirHeld['1'] = false; this.dir = 0;
+      return;
+    }
+    this.dirHeld[String(d)] = true;
+    this.dir = d;
+    this.dasTimer = 0; this.arrTimer = 0;
+    if (Game.move(d, 0)) AudioEngine.sfx('move');
+  },
+  rotate(dir){
+    if (Game.rotate(dir)) AudioEngine.sfx('rotate');
+  },
+  onKey(k, down){
+    if (down){
+      switch (k){
+        case 'ArrowLeft':  this.pressDir(-1); break;
+        case 'ArrowRight': this.pressDir(1); break;
+        case 'ArrowDown':  Game.setSoftDrop(true); break;
+        case 'ArrowUp': case 'KeyX': this.rotate(1); break;
+        case 'KeyZ': case 'ControlLeft': case 'ControlRight': this.rotate(-1); break;
+        case 'Space':      Game.hardDrop(); break;
+        case 'KeyC': case 'ShiftLeft': case 'ShiftRight': Game.holdPiece(); break;
+        case 'KeyP': case 'Escape': App.togglePause(); break;
+        case 'KeyR':       App.start(); break;
+        case 'KeyM':       App.toggleSound(); break;
+        case 'Enter':      App.confirm(); break;
+      }
+    } else {
+      switch (k){
+        case 'ArrowLeft':
+          this.dirHeld['-1'] = false;
+          this.dir = this.dirHeld['1'] ? 1 : 0;
+          break;
+        case 'ArrowRight':
+          this.dirHeld['1'] = false;
+          this.dir = this.dirHeld['-1'] ? -1 : 0;
+          break;
+        case 'ArrowDown':  Game.setSoftDrop(false); break;
+      }
+    }
+  },
+  tick(dt){
+    // DAS/ARR auto-repeat
+    if (this.dir !== 0){
+      this.dasTimer += dt;
+      if (this.dasTimer >= DAS){
+        this.arrTimer += dt;
+        while (this.arrTimer >= ARR){
+          this.arrTimer -= ARR;
+          if (Game.move(this.dir, 0)) AudioEngine.sfx('move');
+          else break;
+        }
+      }
+    } else {
+      this.dasTimer = 0; this.arrTimer = 0;
+    }
+  }
+};
+
+/* ============================================================
+   APP — flow control + main loop
+   ============================================================ */
+const App = {
+  soundOn: true, started: false, raf: null, lastT: 0,
+
+  init(){
+    UI.init();
+    Render.layout();
+    Ambience.init();
+    Input.init();
+    Game.newBoard();
+    UI.sync();
+
+    UI.el.cta.addEventListener('click', () => this.confirm());
+    UI.el.muteBtn.addEventListener('click', () => this.toggleSound());
+    this.elFlash = UI.el.flash;
+    this.elFlash.style.background = 'radial-gradient(80% 60% at 50% 40%, rgba(255,255,255,.9), rgba(200,220,255,.4))';
+
+    window.addEventListener('resize', () => {
+      Render.layout();
+      Ambience.resize();
+    });
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden && Game.playing && !Game.paused) this.togglePause();
+    });
+
+    // show start overlay
+    UI.el.ovTitle.textContent = 'TETRIS';
+    UI.el.ovSub.textContent = 'obsidian edition';
+    UI.el.ovStats.innerHTML = 'SRS rotation &middot; 7-bag &middot; hold &middot; T-spins<br>combos &middot; back-to-back &middot; perfect clears';
+    UI.el.ctaLabel.textContent = 'Start Game';
+
+    this.updateSoundBtn();
+    this.lastT = performance.now();
+    this.raf = requestAnimationFrame((t) => this.frame(t));
+  },
+
+  confirm(){
+    // Enter / click on overlay: start, restart, or resume
+    if (!Game.playing){ this.start(); }
+    else if (Game.paused){ this.togglePause(); }
+  },
+  start(){
+    UI.hideOverlay();
+    Game.reset();
+    this.started = true;
+    if (this.soundOn){
+      AudioEngine.enable();
+      AudioEngine.musicIntensity = 0;
+      AudioEngine.startMusic();
+    }
+  },
+  togglePause(){
+    if (!Game.playing || Game.over) return;
+    Game.paused = !Game.paused;
+    if (Game.paused){
+      UI.showPause();
+      AudioEngine.stopMusic();
+    } else {
+      UI.hideOverlay();
+      if (this.soundOn) AudioEngine.startMusic();
+    }
+  },
+  toggleSound(){
+    this.soundOn = !this.soundOn;
+    if (this.soundOn){
+      AudioEngine.enable();
+      if (Game.playing && !Game.paused) AudioEngine.startMusic();
+    } else {
+      AudioEngine.disable();
+    }
+    this.updateSoundBtn();
+  },
+  updateSoundBtn(){
+    UI.el.muteBtn.textContent = 'Sound: ' + (this.soundOn ? 'On' : 'Off');
+    UI.el.muteBtn.classList.toggle('on', this.soundOn);
+  },
+
+  frame(t){
+    const dt = Math.min(50, t - this.lastT);
+    this.lastT = t;
+
+    if (Game.playing && !Game.paused){
+      Input.tick(dt);
+      Game.tick(dt);
+    }
+    FX.tick(dt);
+
+    // decay flash + shake (styles written EVERY frame so restart can't leave stale values)
+    if (Game.flashAlpha > 0){
+      Game.flashAlpha = Math.max(0, Game.flashAlpha - dt/450);
+    }
+    this.elFlash.style.opacity = (Game.flashAlpha * 0.8).toFixed(3);
+    if (Game.shake > 0){
+      Game.shake = Math.max(0, Game.shake - dt/28);
+    }
+    const s = Game.shake;
+    UI.el.stageWrap.style.transform = s > 0.05
+      ? `translate(${(Math.random()-.5)*s}px, ${(Math.random()-.5)*s}px)`
+      : '';
+
+    Render.draw();
+    if (UI.dirtyNext){ UI.dirtyNext = false; Render.drawNext(); }
+    if (UI.dirtyHold){ UI.dirtyHold = false; Render.drawHold(); }
+    UI.syncTime();
+    if (Game.playing && !Game.paused && (Game.pieces % 7 === 0)) { /* periodic sync */ }
+    if (t % 4 < 1) UI.sync();
+    Ambience.draw(t);
+
+    this.raf = requestAnimationFrame((tt) => this.frame(tt));
+  }
+};
+
+/* ---------- boot ---------- */
+window.addEventListener('DOMContentLoaded', () => {
+  App.init();
+  // test hook for automated verification (harmless in production)
+  window.__TETRIS__ = { Game, Render, AudioEngine, App, Input, SHAPES, KICKS_JLSTZ, KICKS_I };
+});
+
+})();
+</script>
+</body>
+</html>
