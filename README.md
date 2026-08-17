@@ -25,7 +25,7 @@ No fixes, no tweaks — this is a straight head-to-head of what each model can p
 
 Open [`index.html`](index.html) — each Tetris opens in its own new tab so you can play them all side by side.
 
-Prefer to jump straight in? Just open any of the four HTML files directly in a browser. There is no build step, no server, and no dependencies — each file is fully self-contained.
+Prefer to jump straight in? Just open any of the six HTML files directly in a browser. There is no build step, no server, and no dependencies — each file is fully self-contained.
 
 ## Rules of the Battle
 
